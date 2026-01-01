@@ -1,0 +1,9 @@
+venv/
+__pycache__/
+.DS_Store
+firebase_key.json
+*-firebase-adminsdk-*.json
+simco_demo_dataset_30d/
+*.csv
+*.sqlite
+.env
