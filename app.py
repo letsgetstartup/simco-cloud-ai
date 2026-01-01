@@ -11,86 +11,72 @@ st.set_page_config(page_title="Simco Cloud AI", page_icon="☁️", layout="wide
 
 # --- AUTHENTICATION HANDLER ---
 # This ensures the app works both Locally (using file) and Online (using Secrets)
+# --- AUTHENTICATION HANDLER ---
 def get_db():
     try:
+        # Check if app is already initialized
         if not firebase_admin._apps:
             cred = None
             
-            # 1. Try to find the secret in various common keys
-            raw_data = None
-            if "firebase" in st.secrets:
-                raw_data = dict(st.secrets["firebase"])
-            elif "FIREBASE_KEY" in st.secrets:
+            # 1. Check for manual override in session state (from sidebar)
+            if "manual_firebase_json" in st.session_state and st.session_state.manual_firebase_json:
                 try:
-                    raw_data = json.loads(st.secrets["FIREBASE_KEY"])
-                except:
-                    st.error("FIREBASE_KEY found but it's not a valid JSON string.")
+                    key_dict = json.loads(st.session_state.manual_firebase_json)
+                    st.sidebar.success("Using manually provided JSON")
+                except Exception as e:
+                    st.sidebar.error(f"Manual JSON Error: {e}")
+                    key_dict = None
             
-            # 2. Process and Clean the key
-            if raw_data:
-                # Ensure it's a dict
-                key_dict = dict(raw_data)
+            # 2. Try Streamlit Secrets
+            else:
+                raw_data = None
+                if "firebase" in st.secrets:
+                    raw_data = dict(st.secrets["firebase"])
+                elif "FIREBASE_KEY" in st.secrets:
+                    try: raw_data = json.loads(st.secrets["FIREBASE_KEY"])
+                    except: pass
                 
-                # The PEM error usually means the private_key string is malformed
+                key_dict = dict(raw_data) if raw_data else None
+
+            # 3. Clean and Validate
+            if key_dict:
                 if "private_key" in key_dict:
                     pk = str(key_dict["private_key"])
                     
-                    # 1. Fix newline escaping
-                    pk = pk.replace("\\n", "\n")
+                    # Aggressive PEM reconstruction
+                    # We extract only the base64 content and wrap it in fresh headers
+                    content = pk.replace("-----BEGIN PRIVATE KEY-----", "")
+                    content = content.replace("-----END PRIVATE KEY-----", "")
+                    content = content.replace("_____BEGIN PRIVATE KEY_____", "")
+                    content = content.replace("_____END PRIVATE KEY_____", "")
+                    content = content.replace("\\n", "\n").strip()
                     
-                    # 2. Aggressive Cleanup
-                    # Remove any characters that shouldn't be in a PEM header/footer lines
-                    # Specifically, ensure the headers use dashes, not underscores
-                    lines = pk.splitlines()
-                    cleaned_lines = []
-                    for line in lines:
-                        l = line.strip()
-                        if "BEGIN" in l or "END" in l:
-                            # Force correct header/footer format
-                            if "BEGIN" in l:
-                                cleaned_lines.append("-----BEGIN PRIVATE KEY-----")
-                            else:
-                                cleaned_lines.append("-----END PRIVATE KEY-----")
-                        elif l:
-                            # This is the base64 content. It should NOT have underscores.
-                            # If it does, it might be a Base64URL vs Base64 issue or a typo.
-                            cleaned_lines.append(l)
-                    
-                    pk = "\n".join(cleaned_lines)
+                    # Reconstruct from scratch with guaranteed dashes
+                    pk = "-----BEGIN PRIVATE KEY-----\n" + content + "\n-----END PRIVATE KEY-----\n"
                     key_dict["private_key"] = pk
                     
-                    # Safe diagnostic check
-                    st.info(f"Diagnostic: Key length: {len(pk)} chars. Starts with `{pk[:15]}`")
-                
-                # Check for other common fields
-                required_fields = ["project_id", "client_email", "private_key"]
-                missing = [f for f in required_fields if f not in key_dict]
-                if missing:
-                    st.error(f"Missing fields in Secret: {missing}")
+                    # HEX DIAGNOSTIC: Show the actual bytes of the first 10 chars
+                    prefix_hex = pk[:10].encode('utf-8').hex()
+                    st.sidebar.info(f"Diag: Byte 4 Hex: {prefix_hex[8:10]} (should be 2d)")
                 
                 try:
                     cred = credentials.Certificate(key_dict)
                 except Exception as cert_err:
-                    st.error(f"Credential Setup Error: {cert_err}")
-                    # Let the user see the structure (masked)
-                    safe_dict = {k: "v" if k == "private_key" else v for k, v in key_dict.items()}
-                    st.write("Current Secret Structure (Masked):", safe_dict)
-                    st.info("💡 Tip: Try removing your secrets and re-pasting them as a single block.")
-
-            # 3. Fallback to local if no secrets
+                    st.error(f"Certificate Error: {cert_err}")
+                    st.info("Try pasting your JSON directly in the Sidebar 'Advanced' section.")
+            
+            # 4. Local fallback
             if not cred and os.path.exists("firebase_key.json"):
                 cred = credentials.Certificate("firebase_key.json")
             
             if cred:
                 firebase_admin.initialize_app(cred)
             else:
-                st.error("Authentication Error: No database credentials found.")
-                st.info("Please Check: [share.streamlit.io] -> Settings -> Secrets.")
                 return None
         
         return firestore.client()
     except Exception as e:
-        st.error(f"Failed to connect to Database: {e}")
+        st.error(f"DB Error: {e}")
         return None
 
 # --- AI LOGIC ---
@@ -138,14 +124,20 @@ def main():
         st.header("Settings")
         api_key = st.text_input("Gemini API Key", type="password")
         st.info("Get your key from [Google AI Studio](https://aistudio.google.com/)")
+        
+        with st.expander("🛠️ Advanced / Troubleshooting"):
+            manual_json = st.text_area("Paste Firebase JSON here if Secrets fail", height=150)
+            if manual_json:
+                st.session_state.manual_firebase_json = manual_json
+            st.button("Clear App Cache", on_click=st.cache_data.clear)
+        
         st.divider()
         st.markdown("**Status:**")
-        
-        # Connect to DB
         db = get_db()
         if db:
-            st.success("Connected to Firebase Cloud 🟢")
+            st.success("Connected to Firebase 🟢")
         else:
+            st.error("Authentication Blocked 🔴")
             st.stop()
 
     # Main Area
