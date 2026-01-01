@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SolidComAI | Manufacturing Intelligence</title>
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FFFFD700">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="https://img.icons8.com/wired/128/ffd700/factory.png">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Inter:wght@400;500;600&display=swap"
+        rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body class="dark-theme">
+    <div id="app-container">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="glass-panel">
+            <div class="logo">
+                <i class="fas fa-bolt" style="color: #FFFFD700;"></i>
+                <span>SolidComAI</span>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Settings</h3>
+                <div class="input-group">
+
+                    <div class="input-group">
+                        <label for="dataset-select">Select Dataset</label>
+                        <select id="dataset-select">
+                            <option value="machines">Machines</option>
+                            <option value="jobs">Jobs</option>
+                            <option value="events">Events</option>
+                            <option value="tools">Tools</option>
+                            <option value="signals">Signals</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="status-indicator">
+                    <div class="dot active"></div>
+                    <span>Connected to Firebase</span>
+                </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main id="main">
+            <header class="chat-header">
+                <h1>Insight Engine</h1>
+                <p>Powered by Gemini 2.5 Pro</p>
+            </header>
+
+            <div id="chat-container">
+                <div id="chat-messages">
+                    <div class="message assistant">
+                        <div class="avatar"><i class="fas fa-robot"></i></div>
+                        <div class="content">
+                            Hello! I am **SolidComAI**. I am ready to analyze your manufacturing data using your
+                            permanent Gemini 2.5 Pro key.
+
+                            Ask me anything!
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="input-area">
+                <div class="input-wrapper">
+                    <textarea id="user-input" placeholder="Ask about your data..." rows="1"></textarea>
+                    <button id="send-btn"><i class="fas fa-arrow-up"></i></button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('service-worker.js');
+        }
+    </script>
+    <script src="script.js"></script>
+</body>
+
+</html>

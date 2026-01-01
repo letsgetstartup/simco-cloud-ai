@@ -85,7 +85,7 @@ def ask_gemini(api_key, dataframe, question, collection_name):
     Sends a sample of the data + the user question to Gemini.
     """
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-2.5-pro')
     
     # We convert the dataframe to a string representation (JSON)
     # We limit to 50 rows to prevent token overflow, assuming the user asks about recent trends

@@ -1,0 +1,26 @@
+{
+    "name": "SolidComAI",
+    "short_name": "SolidComAI",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0F0F0F",
+    "theme_color": "#FFFFD700",
+    "description": "Premium Manufacturing Intelligence Engine",
+    "icons": [
+        {
+            "src": "https://img.icons8.com/wired/64/ffd700/factory.png",
+            "sizes": "64x64",
+            "type": "image/png"
+        },
+        {
+            "src": "https://img.icons8.com/wired/128/ffd700/factory.png",
+            "sizes": "128x128",
+            "type": "image/png"
+        },
+        {
+            "src": "https://img.icons8.com/wired/512/ffd700/factory.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        }
+    ]
+}

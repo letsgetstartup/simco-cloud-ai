@@ -7,3 +7,4 @@ simco_demo_dataset_30d/
 *.csv
 *.sqlite
 .env
+.firebase/
