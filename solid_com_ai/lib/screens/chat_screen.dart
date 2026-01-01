@@ -19,10 +19,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Message> _messages = [];
   
   bool _isLoading = false;
-  String _selectedDataset = 'machines';
-
-  // Datasets available in the backend
-  final List<String> _datasets = ['machines', 'jobs', 'events', 'tools', 'signals'];
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -55,7 +51,7 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
-      final responseText = await _apiService.sendMessage(text, _selectedDataset);
+      final responseText = await _apiService.sendMessage(text);
       final aiMsg = Message(
         id: const Uuid().v4(),
         text: responseText,
@@ -84,6 +80,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
   }
+
 
   Widget _buildSidebar(BuildContext context) {
     return Container(
@@ -119,7 +116,7 @@ class _ChatScreenState extends State<ChatScreen> {
           const SizedBox(height: 24),
 
           Text(
-            'Select Dataset',
+            'Data Connection',
             style: GoogleFonts.inter(
               fontSize: 14,
               color: Colors.white,
@@ -127,27 +124,26 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
           const SizedBox(height: 12),
           
-          // Dataset Selector with Yellow Outline
+          // Unified Status Indicator
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFFFD700), width: 1.5),
               color: const Color(0xFF1E1E1E),
             ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: _selectedDataset,
-                isExpanded: true,
-                dropdownColor: const Color(0xFF1E1E1E),
-                items: _datasets.map((ds) => DropdownMenuItem(
-                  value: ds,
-                  child: Text(ds[0].toUpperCase() + ds.substring(1), style: const TextStyle(color: Colors.white)),
-                )).toList(),
-                onChanged: (val) {
-                  if (val != null) setState(() => _selectedDataset = val);
-                },
-              ),
+            child: Row(
+              children: [
+                const Icon(Icons.layers, color: Color(0xFFFFD700), size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'Unified Data View',
+                  style: GoogleFonts.inter(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
           
@@ -330,6 +326,4 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
-}
-
 }

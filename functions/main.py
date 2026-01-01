@@ -8,9 +8,9 @@ import os
 initialize_app()
 
 @https_fn.on_request(secrets=["GEMINI_API_KEY"])
-def ask_gemini(req):
+def ask(req):
     db = firestore.client()
-    # CORS headers
+    # CORS headers - Force Rebuild
     if req.method == 'OPTIONS':
         return https_fn.Response(status=204, headers={
             'Access-Control-Allow-Origin': '*',
@@ -33,15 +33,22 @@ def ask_gemini(req):
         if not api_key or not question:
             return https_fn.Response(json.dumps({'error': 'Missing API Key. Please provide it in the sidebar or set GEMINI_API_KEY secret.'}), status=400, headers=headers)
 
-        # 1. Fetch data from Firestore
-        docs = db.collection(collection_name).limit(60).stream()
-        data_list = [doc.to_dict() for doc in docs]
+        # 1. Fetch data from ALL collections (Unified View)
+        collections_to_fetch = ['machines', 'jobs', 'events', 'tools', 'signals']
+        unified_data = {}
         
-        if not data_list:
-            return https_fn.Response(json.dumps({'answer': f"No data found in the '{collection_name}' collection. Please ensure you have uploaded your data."}), status=200, headers=headers)
+        for col_name in collections_to_fetch:
+            # Limit to 30 docs per collection to manage context size (Total ~150 rows)
+            docs = db.collection(col_name).limit(30).stream()
+            data_list = [doc.to_dict() for doc in docs]
+            if data_list:
+                df = pd.DataFrame(data_list)
+                unified_data[col_name] = df.to_dict(orient="records")
+            else:
+                unified_data[col_name] = []
 
-        df = pd.DataFrame(data_list)
-        data_context = df.to_json(orient="records")
+        # Convert unified data to JSON string for the prompt
+        data_context = json.dumps(unified_data, indent=2)
 
         # 2. Call Gemini
         genai.configure(api_key=api_key)
@@ -50,17 +57,24 @@ def ask_gemini(req):
         prompt = f"""
         You are a Manufacturing Data Analyst for Simco.
         
-        I have a dataset from the '{collection_name}' table. 
-        Here is a sample of the data:
+        I have a **Unified Manufacturing Dataset** comprising multiple tables:
+        - machines: Machine status, models, and specs.
+        - jobs: Production job details, cycle times, and costs.
+        - events: Alarms, warnings, and operational events.
+        - tools: Tool usage, life expectancy, and breakage data.
+        - signals: Real-time sensor data (spindle load, temp, etc.).
+
+        Here is the JSON data:
         {data_context}
         
         User Question: "{question}"
         
         Instructions:
-        1. Analyze the data to provide a high-value answer for a machine shop manager.
-        2. Focus on cost reduction, efficiency, outliers, and actionable insights.
-        3. Format the 'answer' part in Markdown.
-        4. Generate 3 complex, data-driven follow-up questions for the next investigation.
+        1. Analyze the ENTIRE dataset to provide a high-value answer.
+        2. CROSS-REFERENCE tables (e.g., link 'events' to 'machines', or 'tools' to 'jobs').
+        3. Focus on complex correlations, cost reduction, bottleneck analysis, and efficiency.
+        4. Format the 'answer' part in Markdown.
+        5. Generate 3 complex, multi-table follow-up questions.
         
         IMPORTANT: Return the response as a valid JSON object with NO Markdown formatting (no ```json code blocks).
         Structure:

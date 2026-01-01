@@ -23,7 +23,7 @@
         "rewrites": [
             {
                 "source": "/ask",
-                "function": "ask_gemini"
+                "function": "ask"
             },
             {
                 "source": "**",

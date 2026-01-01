@@ -4,36 +4,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const chatMessages = document.getElementById('chat-messages');
     const userInput = document.getElementById('user-input');
     const sendBtn = document.getElementById('send-btn');
-    const datasetSelect = document.getElementById('dataset-select');
+    // const datasetSelect = document.getElementById('dataset-select'); // Removed
 
-    // Starter Questions for Value-Driven Conversations
-    const STARTER_QUESTIONS = {
-        'machines': [
-            "Compare the hourly operational costs of VMC Mills vs Turning Centers.",
-            "Identify machines with the highest downtime frequency.",
-            "Analyze the efficiency rating spread across all machine groups."
-        ],
-        'jobs': [
-            "Which jobs have the highest variance between estimated and actual cycle time?",
-            "Identify the top 3 most expensive jobs currently in production.",
-            "Analyze the production bottleneck based on active job status."
-        ],
-        'events': [
-            "What are the most frequent alarm types triggered in the last 24 hours?",
-            "Correlate operational status changes with specific machine IDs.",
-            "Identify shifts with the highest density of critical events."
-        ],
-        'tools': [
-            "Which tools are approaching their end-of-life expectancy?",
-            "Analyze tool usage patterns across high-volume jobs.",
-            "Identify potential tool breakage risks based on current load."
-        ],
-        'signals': [
-            "Detect anomalies in spindle load signals for the past hour.",
-            "Correlate temperature spikes with specific machine operations.",
-            "Analyze the signal noise ratio for key sensor inputs."
-        ]
-    };
+    // Complex Multi-Table Starter Questions (Unified View)
+    const STARTER_QUESTIONS = [
+        "Correlate frequent alarm events with specific job IDs to identify high-risk production runs.",
+        "Compare the average cycle time variance of VMC Mills vs Turning Centers across all active jobs.",
+        "Identify the machine with the highest operational cost per produced unit, factoring in tool wear and energy signals.",
+        "Analyze the impact of spindle load anomalies (signals) on tool breakage frequency (tools).",
+        "Which production shift has the highest efficiency rating when normalizing for job complexity?",
+        "Detect correlations between temperature spikes in signals and subsequent downtime events on critical machines.",
+        "Identify the top 3 bottlenecks in the shop floor by cross-referencing job delays and machine alarm logs.",
+        "Calculate the estimated vs actual cost variance for all jobs running on machines exceeding 80% utilization.",
+        "Predict upcoming tool replacements based on current job run rates and remaining tool life expectancy.",
+        "Analyze the relationship between specific machine models and the frequency of 'Critical' severity events."
+    ];
 
     // Auto-resize textarea
     userInput.addEventListener('input', () => {
@@ -101,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const handleSend = async () => {
         const question = userInput.value.trim();
-        const collection = datasetSelect.value;
+        // const collection = datasetSelect.value; // Removed as per instruction
 
         if (!question) return;
 
@@ -118,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Loading message
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'message assistant loading';
-        loadingDiv.innerHTML = '<div class="avatar"><i class="fas fa-robot"></i></div><div class="content"><i class="fas fa-circle-notch fa-spin"></i> Analyzing data...</div>';
+        loadingDiv.innerHTML = '<div class="avatar"><i class="fas fa-robot"></i></div><div class="content"><i class="fas fa-circle-notch fa-spin"></i> Analyzing unified shop floor data...</div>';
         chatMessages.appendChild(loadingDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -128,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/ask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question, collection })
+                body: JSON.stringify({ question }) // No interaction with collection anymore
             });
 
             const data = await response.json();
@@ -155,33 +140,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Initial Starter Quesitons Display
     const updateStarterQuestions = () => {
-        const dataset = datasetSelect.value;
-        const questions = STARTER_QUESTIONS[dataset] || [];
-
-        // Remove old starters if any (in a real app, maybe only show if chat is empty)
-        // For now, let's just log or optional: display them if chat is empty. 
         // Strategy: If chat is empty, show them.
         if (chatMessages.children.length <= 1) { // 1 because of welcome message
-            // Don't auto-show as chips to avoid clutter, maybe user wants to type.
-            // But user requested: "so users will see the most advances questions as an option to start a conversation"
-            // Let's create a special "Starter Container"
             const starterContainer = document.querySelector('.starter-container');
             if (starterContainer) starterContainer.remove();
 
-            if (questions.length > 0) {
+            if (STARTER_QUESTIONS.length > 0) {
                 const container = document.createElement('div');
                 container.className = 'starter-container follow-up-container';
-                // Reusing follow-up styling for basics
 
                 const label = document.createElement('div');
                 label.className = 'follow-up-label';
-                label.innerHTML = `<i class="fas fa-star"></i> Suggested specific specific questions for <b>${dataset}</b>:`;
+                label.innerHTML = `<i class="fas fa-layer-group"></i> <b>Unified Analysis</b> - Try these complex inquiries:`;
                 container.appendChild(label);
 
                 const chipsDiv = document.createElement('div');
                 chipsDiv.className = 'chips-wrapper';
 
-                questions.forEach(q => {
+                STARTER_QUESTIONS.forEach(q => {
                     const chip = document.createElement('button');
                     chip.className = 'suggestion-chip';
                     chip.textContent = q;
@@ -205,20 +181,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Update starters when dataset changes
-    datasetSelect.addEventListener('change', () => {
-        // Clear chat? Or just show new starters?
-        // Let's reset chat for clean context switch as implied by "start a conversation"
-        chatMessages.innerHTML = '';
-        // Add welcome back
-        const welcomeDiv = document.createElement('div');
-        welcomeDiv.className = 'message assistant';
-        welcomeDiv.innerHTML = `<div class="avatar"><i class="fas fa-robot"></i></div><div class="content">Hello! I am **SolidComAI**. I am ready to analyze your <b>${datasetSelect.value}</b> data using your permanent Gemini 2.5 Pro key.<br><br>Ask me anything!</div>`;
-        chatMessages.appendChild(welcomeDiv);
-
-        updateStarterQuestions();
-    });
+    // Removed datasetSelect.addEventListener('change', ...) as per instruction
 
     // Init Logic
+    // Add initial welcome message
+    const welcomeDiv = document.createElement('div');
+    welcomeDiv.className = 'message assistant';
+    welcomeDiv.innerHTML = `<div class="avatar"><i class="fas fa-robot"></i></div><div class="content">Hello! I am **SolidComAI**. I have full visibility into your **Machines, Jobs, Events, Tools, and Signals**.<br><br>Ask me complex questions that cross-reference your data!</div>`;
+    chatMessages.appendChild(welcomeDiv);
+
     updateStarterQuestions();
 });

@@ -6,7 +6,7 @@ class ApiService {
   // Using the Hosting URL which rewrites to Cloud Functions
   static const String _baseUrl = 'https://solidcam-f58bc.web.app/ask';
 
-  Future<String> sendMessage(String question, String collection) async {
+  Future<String> sendMessage(String question) async {
     try {
       final response = await http.post(
         Uri.parse(_baseUrl),
@@ -15,7 +15,7 @@ class ApiService {
         },
         body: jsonEncode({
           'question': question,
-          'collection': collection,
+          // 'collection' is removed for Unified Data View
           // No API Key needed - handled by server-side secrets
         }),
       );

@@ -35,23 +35,13 @@
             <div class="sidebar-section">
                 <h3>Settings</h3>
                 <div class="input-group">
-
-                    <div class="input-group">
-                        <label for="dataset-select">Select Dataset</label>
-                        <select id="dataset-select">
-                            <option value="machines">Machines</option>
-                            <option value="jobs">Jobs</option>
-                            <option value="events">Events</option>
-                            <option value="tools">Tools</option>
-                            <option value="signals">Signals</option>
-                        </select>
+                    <label>Data Connection</label>
+                    <div class="status-indicator">
+                        <div class="dot active"></div>
+                        <span>Unified Manufacturing Data</span>
                     </div>
                 </div>
-
-                <div class="status-indicator">
-                    <div class="dot active"></div>
-                    <span>Connected to Firebase</span>
-                </div>
+            </div>
         </aside>
 
         <!-- Main Content -->
@@ -63,15 +53,7 @@
 
             <div id="chat-container">
                 <div id="chat-messages">
-                    <div class="message assistant">
-                        <div class="avatar"><i class="fas fa-robot"></i></div>
-                        <div class="content">
-                            Hello! I am **SolidComAI**. I am ready to analyze your manufacturing data using your
-                            permanent Gemini 2.5 Pro key.
-
-                            Ask me anything!
-                        </div>
-                    </div>
+                    <!-- Messages will be added dynamically by script.js -->
                 </div>
             </div>
 
