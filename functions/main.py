@@ -57,30 +57,32 @@ def ask(req):
         prompt = f"""
         You are a Manufacturing Data Analyst for Simco.
         
-        I have a **Unified Manufacturing Dataset** comprising multiple tables:
-        - machines: Machine status, models, and specs.
-        - jobs: Production job details, cycle times, and costs.
-        - events: Alarms, warnings, and operational events.
-        - tools: Tool usage, life expectancy, and breakage data.
-        - signals: Real-time sensor data (spindle load, temp, etc.).
-
-        Here is the JSON data:
+        I have a Unified Shop Floor Dataset containing Machines, Jobs, Events, Tools, and Signals.
+        Here is a sample of the aggregated data:
         {data_context}
         
         User Question: "{question}"
         
         Instructions:
-        1. Analyze the ENTIRE dataset to provide a high-value answer.
-        2. CROSS-REFERENCE tables (e.g., link 'events' to 'machines', or 'tools' to 'jobs').
-        3. Focus on complex correlations, cost reduction, bottleneck analysis, and efficiency.
-        4. Format the 'answer' part in Markdown.
-        5. Generate 3 complex, multi-table follow-up questions.
+        1. Analyze the unified data to answer the question.
+        2. Perform calculations and cross-references (e.g., correlations between signals and tools).
+        3. Format the text answer in Markdown.
+        4. ALWAYS generate a relevant data visualization (chart) configuration if the answer involves quantifiable data.
+           - Choose the best chart type: 'bar' (comparisons), 'line' (trends), 'pie' (distribution), or 'doughnut'.
+           - Ensure colors are suitable for a dark theme (Gold #FFFFD700, White #FFFFFF, Grey #808080).
         
-        IMPORTANT: Return the response as a valid JSON object with NO Markdown formatting (no ```json code blocks).
-        Structure:
+        Return pure JSON with this structure:
         {{
-            "answer": "markdown string of the analysis",
-            "follow_up": ["Question 1?", "Question 2?", "Question 3?"]
+            "answer": "Markdown answer here...",
+            "follow_up": ["Complex Question 1", "Complex Question 2", "Complex Question 3"],
+            "visualization": {{
+                "type": "bar", 
+                "title": "Chart Title",
+                "labels": ["Label1", "Label2"],
+                "datasets": [
+                    {{ "label": "Series Name", "data": [10, 20], "backgroundColor": ["#FFFFD700", "#FFFFFF"] }}
+                ]
+            }}
         }}
         """
         

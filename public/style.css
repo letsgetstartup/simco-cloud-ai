@@ -423,3 +423,30 @@ textarea {
         margin-left: 0;
     }
 }
+/* Visualization Container */
+.chart-container {
+    background: rgba(30, 30, 30, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 16px;
+    margin-top: 12px;
+    margin-bottom: 24px;
+    width: 100%;
+    max-width: 600px;
+    height: 350px;
+    position: relative;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.chart-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+@media (max-width: 600px) {
+    .chart-container {
+        height: 250px;
+        padding: 10px;
+    }
+}

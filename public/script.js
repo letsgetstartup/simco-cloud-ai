@@ -84,6 +84,62 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     };
 
+    // Helper: Render Chart
+    const renderChart = (vizData) => {
+        if (!vizData) return;
+
+        const chartContainer = document.createElement('div');
+        chartContainer.className = 'chart-container';
+
+        const canvas = document.createElement('canvas');
+        chartContainer.appendChild(canvas);
+
+        chatMessages.appendChild(chartContainer);
+        chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to show chart
+
+        // Default Dark Theme Colors
+        Chart.defaults.color = '#FFFFFF';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+
+        new Chart(canvas, {
+            type: vizData.type || 'bar',
+            data: {
+                labels: vizData.labels,
+                datasets: vizData.datasets.map(ds => ({
+                    ...ds,
+                    borderWidth: 1,
+                    // If no background color provided, use Simco Gold/Grey
+                    backgroundColor: ds.backgroundColor || ['#FFFFD700', '#808080', '#FFFFFF', '#A9A9A9']
+                }))
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: vizData.title,
+                        font: { size: 16 }
+                    },
+                    legend: {
+                        display: true,
+                        position: 'bottom'
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: 'rgba(255,255,255,0.7)' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    },
+                    y: {
+                        ticks: { color: 'rgba(255,255,255,0.7)' },
+                        grid: { color: 'rgba(255,255,255,0.05)' }
+                    }
+                }
+            }
+        });
+    };
+
     const handleSend = async () => {
         const question = userInput.value.trim();
         // const collection = datasetSelect.value; // Removed as per instruction
@@ -121,6 +177,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (data.answer) {
                 addMessage('assistant', data.answer);
+
+                // Render Chart if Visualization Data exists
+                if (data.visualization) {
+                    renderChart(data.visualization);
+                }
 
                 // Show Follow-up Questions from Backend
                 if (data.follow_up && Array.isArray(data.follow_up)) {
