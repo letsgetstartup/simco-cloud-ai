@@ -35,46 +35,47 @@ def get_db():
                 if "private_key" in key_dict:
                     pk = str(key_dict["private_key"])
                     
-                    # Fix escaped newlines if they exist
+                    # 1. Fix newline escaping
                     pk = pk.replace("\\n", "\n")
                     
-                    # CRISIS FIX: Some systems/users replace dashes with underscores or other chars
-                    # The error "InvalidByte(4, 95)" means index 4 is an underscore (_)
-                    # We will strictly normalize the header and footer
-                    if "-----BEGIN PRIVATE KEY-----" not in pk:
-                        # Strip all non-alphanumeric chars from the start until we find the base64 content
-                        # But simpler: just force the standard header if it's missing or broken
-                        content = pk.strip()
-                        if "PRIVATE KEY" in content:
-                            # Try to extract just the middle part if headers are broken
-                            import re
-                            match = re.search(r"KEY-*(.*?)---", content, re.DOTALL)
-                            if match:
-                                content = match.group(1).strip()
-                            else:
-                                # Remove anything that looks like a broken header
-                                content = content.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").strip()
-                                content = content.replace("_____BEGIN PRIVATE KEY_____", "").replace("_____END PRIVATE KEY_____", "").strip()
-                        
-                        pk = f"-----BEGIN PRIVATE KEY-----\n{content}\n-----END PRIVATE KEY-----\n"
-                    
-                    # Final sanity check: ensure no underscores in the actual header lines
+                    # 2. Aggressive Cleanup
+                    # Remove any characters that shouldn't be in a PEM header/footer lines
+                    # Specifically, ensure the headers use dashes, not underscores
                     lines = pk.splitlines()
-                    if lines:
-                        if "BEGIN" in lines[0]: lines[0] = "-----BEGIN PRIVATE KEY-----"
-                        if "END" in lines[-1]: lines[-1] = "-----END PRIVATE KEY-----"
-                    pk = "\n".join(lines)
+                    cleaned_lines = []
+                    for line in lines:
+                        l = line.strip()
+                        if "BEGIN" in l or "END" in l:
+                            # Force correct header/footer format
+                            if "BEGIN" in l:
+                                cleaned_lines.append("-----BEGIN PRIVATE KEY-----")
+                            else:
+                                cleaned_lines.append("-----END PRIVATE KEY-----")
+                        elif l:
+                            # This is the base64 content. It should NOT have underscores.
+                            # If it does, it might be a Base64URL vs Base64 issue or a typo.
+                            cleaned_lines.append(l)
                     
+                    pk = "\n".join(cleaned_lines)
                     key_dict["private_key"] = pk
                     
-                    # Safe diagnostic prefix
-                    st.info(f"Diagnostic: Private key starts with `{pk[:10]}...`")
+                    # Safe diagnostic check
+                    st.info(f"Diagnostic: Key length: {len(pk)} chars. Starts with `{pk[:15]}`")
+                
+                # Check for other common fields
+                required_fields = ["project_id", "client_email", "private_key"]
+                missing = [f for f in required_fields if f not in key_dict]
+                if missing:
+                    st.error(f"Missing fields in Secret: {missing}")
                 
                 try:
                     cred = credentials.Certificate(key_dict)
                 except Exception as cert_err:
                     st.error(f"Credential Setup Error: {cert_err}")
-                    st.info("💡 Tip: Ensure you used dashes `-` and not underscores `_` in your PEM headers.")
+                    # Let the user see the structure (masked)
+                    safe_dict = {k: "v" if k == "private_key" else v for k, v in key_dict.items()}
+                    st.write("Current Secret Structure (Masked):", safe_dict)
+                    st.info("💡 Tip: Try removing your secrets and re-pasting them as a single block.")
 
             # 3. Fallback to local if no secrets
             if not cred and os.path.exists("firebase_key.json"):
