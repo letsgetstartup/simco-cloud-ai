@@ -16,30 +16,54 @@ def get_db():
         if not firebase_admin._apps:
             cred = None
             
-            # 1. Try different possible secret formats
+            # 1. Try to find the secret in various common keys
+            raw_data = None
             if "firebase" in st.secrets:
-                # Handle dictionary format (the recommended way)
-                key_dict = dict(st.secrets["firebase"])
-                if "private_key" in key_dict:
-                    key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
-                cred = credentials.Certificate(key_dict)
+                raw_data = dict(st.secrets["firebase"])
             elif "FIREBASE_KEY" in st.secrets:
-                # Handle raw JSON string format
                 try:
-                    key_dict = json.loads(st.secrets["FIREBASE_KEY"])
-                    cred = credentials.Certificate(key_dict)
+                    raw_data = json.loads(st.secrets["FIREBASE_KEY"])
                 except:
-                    st.error("FIREBASE_KEY found but is not valid JSON.")
-            elif os.path.exists("firebase_key.json"):
-                # 2. Fallback to local file
+                    st.error("FIREBASE_KEY found but it's not a valid JSON string.")
+            
+            # 2. Process and Clean the key
+            if raw_data:
+                # Ensure it's a dict
+                key_dict = dict(raw_data)
+                
+                # The PEM error usually means the private_key string is malformed
+                if "private_key" in key_dict:
+                    pk = key_dict["private_key"]
+                    
+                    # Fix escaped newlines if they exist
+                    pk = pk.replace("\\n", "\n")
+                    
+                    # Ensure the PEM headers are exactly correct
+                    # Sometimes copy-paste adds spaces or replaces dashes with underscores
+                    if "-----BEGIN PRIVATE KEY-----" not in pk:
+                        st.warning("Credential Warning: Private key header missing. Attempting to fix...")
+                        pk = "-----BEGIN PRIVATE KEY-----\n" + pk.strip()
+                    if "-----END PRIVATE KEY-----" not in pk:
+                        pk = pk.strip() + "\n-----END PRIVATE KEY-----\n"
+                    
+                    key_dict["private_key"] = pk
+                
+                try:
+                    cred = credentials.Certificate(key_dict)
+                except Exception as cert_err:
+                    st.error(f"Credential Setup Error: {cert_err}")
+                    # Provide a helpful hint about the format
+                    st.info("💡 Tip: In Streamlit Secrets, paste the ENTIRE json as a single block for the best results.")
+
+            # 3. Fallback to local if no secrets
+            if not cred and os.path.exists("firebase_key.json"):
                 cred = credentials.Certificate("firebase_key.json")
             
             if cred:
                 firebase_admin.initialize_app(cred)
             else:
-                available_keys = list(st.secrets.keys())
-                st.error(f"Authentication Error: No database credentials found. Available Secrets: {available_keys}")
-                st.info("Please ensure you have added your Firebase JSON to Streamlit Secrets as [firebase] or FIREBASE_KEY.")
+                st.error("Authentication Error: No database credentials found.")
+                st.info("Please Check: [share.streamlit.io] -> Settings -> Secrets.")
                 return None
         
         return firestore.client()
