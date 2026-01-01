@@ -13,20 +13,34 @@ st.set_page_config(page_title="Simco Cloud AI", page_icon="☁️", layout="wide
 # This ensures the app works both Locally (using file) and Online (using Secrets)
 def get_db():
     try:
-        # Check if app is already initialized
         if not firebase_admin._apps:
+            cred = None
+            
+            # 1. Try different possible secret formats
             if "firebase" in st.secrets:
+                # Handle dictionary format (the recommended way)
                 key_dict = dict(st.secrets["firebase"])
-                key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
+                if "private_key" in key_dict:
+                    key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
                 cred = credentials.Certificate(key_dict)
+            elif "FIREBASE_KEY" in st.secrets:
+                # Handle raw JSON string format
+                try:
+                    key_dict = json.loads(st.secrets["FIREBASE_KEY"])
+                    cred = credentials.Certificate(key_dict)
+                except:
+                    st.error("FIREBASE_KEY found but is not valid JSON.")
             elif os.path.exists("firebase_key.json"):
+                # 2. Fallback to local file
                 cred = credentials.Certificate("firebase_key.json")
+            
+            if cred:
+                firebase_admin.initialize_app(cred)
             else:
                 available_keys = list(st.secrets.keys())
-                st.error(f"Authentication Error: No 'firebase' secret found. Available keys in Streamlit Secrets: {available_keys}")
-                st.info("Ensure you have a [firebase] section in your Secrets.")
+                st.error(f"Authentication Error: No database credentials found. Available Secrets: {available_keys}")
+                st.info("Please ensure you have added your Firebase JSON to Streamlit Secrets as [firebase] or FIREBASE_KEY.")
                 return None
-            firebase_admin.initialize_app(cred)
         
         return firestore.client()
     except Exception as e:
