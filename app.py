@@ -33,27 +33,48 @@ def get_db():
                 
                 # The PEM error usually means the private_key string is malformed
                 if "private_key" in key_dict:
-                    pk = key_dict["private_key"]
+                    pk = str(key_dict["private_key"])
                     
                     # Fix escaped newlines if they exist
                     pk = pk.replace("\\n", "\n")
                     
-                    # Ensure the PEM headers are exactly correct
-                    # Sometimes copy-paste adds spaces or replaces dashes with underscores
+                    # CRISIS FIX: Some systems/users replace dashes with underscores or other chars
+                    # The error "InvalidByte(4, 95)" means index 4 is an underscore (_)
+                    # We will strictly normalize the header and footer
                     if "-----BEGIN PRIVATE KEY-----" not in pk:
-                        st.warning("Credential Warning: Private key header missing. Attempting to fix...")
-                        pk = "-----BEGIN PRIVATE KEY-----\n" + pk.strip()
-                    if "-----END PRIVATE KEY-----" not in pk:
-                        pk = pk.strip() + "\n-----END PRIVATE KEY-----\n"
+                        # Strip all non-alphanumeric chars from the start until we find the base64 content
+                        # But simpler: just force the standard header if it's missing or broken
+                        content = pk.strip()
+                        if "PRIVATE KEY" in content:
+                            # Try to extract just the middle part if headers are broken
+                            import re
+                            match = re.search(r"KEY-*(.*?)---", content, re.DOTALL)
+                            if match:
+                                content = match.group(1).strip()
+                            else:
+                                # Remove anything that looks like a broken header
+                                content = content.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "").strip()
+                                content = content.replace("_____BEGIN PRIVATE KEY_____", "").replace("_____END PRIVATE KEY_____", "").strip()
+                        
+                        pk = f"-----BEGIN PRIVATE KEY-----\n{content}\n-----END PRIVATE KEY-----\n"
+                    
+                    # Final sanity check: ensure no underscores in the actual header lines
+                    lines = pk.splitlines()
+                    if lines:
+                        if "BEGIN" in lines[0]: lines[0] = "-----BEGIN PRIVATE KEY-----"
+                        if "END" in lines[-1]: lines[-1] = "-----END PRIVATE KEY-----"
+                    pk = "\n".join(lines)
                     
                     key_dict["private_key"] = pk
+                    
+                    # Safe diagnostic prefix
+                    st.info(f"Diagnostic: Private key starts with `{pk[:10]}...`")
                 
                 try:
                     cred = credentials.Certificate(key_dict)
                 except Exception as cert_err:
                     st.error(f"Credential Setup Error: {cert_err}")
-                    # Provide a helpful hint about the format
-                    st.info("💡 Tip: In Streamlit Secrets, paste the ENTIRE json as a single block for the best results.")
+                    st.info("💡 Tip: Ensure you used dashes `-` and not underscores `_` in your PEM headers.")
 
             # 3. Fallback to local if no secrets
             if not cred and os.path.exists("firebase_key.json"):
