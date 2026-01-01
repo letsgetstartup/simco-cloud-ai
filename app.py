@@ -15,19 +15,16 @@ def get_db():
     try:
         # Check if app is already initialized
         if not firebase_admin._apps:
-            # OPTION 1: Streamlit Cloud Secrets (For Online Deployment)
-            if "FIREBASE_KEY" in st.secrets:
-                key_dict = json.loads(st.secrets["FIREBASE_KEY"])
+            if "firebase" in st.secrets:
+                key_dict = dict(st.secrets["firebase"])
+                key_dict["private_key"] = key_dict["private_key"].replace("\\n", "\n")
                 cred = credentials.Certificate(key_dict)
-                firebase_admin.initialize_app(cred)
-            
-            # OPTION 2: Local File (For Local Testing)
             elif os.path.exists("firebase_key.json"):
                 cred = credentials.Certificate("firebase_key.json")
-                firebase_admin.initialize_app(cred)
             else:
                 st.error("Authentication Error: No 'firebase_key.json' found and no Secrets configured.")
                 return None
+            firebase_admin.initialize_app(cred)
         
         return firestore.client()
     except Exception as e:
