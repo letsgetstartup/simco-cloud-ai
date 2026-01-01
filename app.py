@@ -22,7 +22,9 @@ def get_db():
             elif os.path.exists("firebase_key.json"):
                 cred = credentials.Certificate("firebase_key.json")
             else:
-                st.error("Authentication Error: No 'firebase_key.json' found and no Secrets configured.")
+                available_keys = list(st.secrets.keys())
+                st.error(f"Authentication Error: No 'firebase' secret found. Available keys in Streamlit Secrets: {available_keys}")
+                st.info("Ensure you have a [firebase] section in your Secrets.")
                 return None
             firebase_admin.initialize_app(cred)
         
