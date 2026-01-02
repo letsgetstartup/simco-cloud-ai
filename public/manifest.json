@@ -1,6 +1,6 @@
 {
-    "name": "SolidComAI",
-    "short_name": "SolidComAI",
+    "name": "SolidCamAI",
+    "short_name": "SolidCamAI",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0F0F0F",

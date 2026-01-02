@@ -95,7 +95,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           // Logo
           Text(
-            'SolidComAI',
+            'SolidCamAI',
             style: GoogleFonts.outfit(
               fontSize: 28,
               fontWeight: FontWeight.extrabold,

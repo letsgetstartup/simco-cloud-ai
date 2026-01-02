@@ -3,16 +3,16 @@ import 'package:google_fonts/google_fonts.dart';
 import 'screens/chat_screen.dart';
 
 void main() {
-  runApp(const SolidComAIApp());
+  runApp(const SolidCamAIApp());
 }
 
-class SolidComAIApp extends StatelessWidget {
-  const SolidComAIApp({super.key});
+class SolidCamAIApp extends StatelessWidget {
+  const SolidCamAIApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'SolidComAI',
+      title: 'SolidCamAI',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,

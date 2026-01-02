@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SolidComAI | Manufacturing Intelligence</title>
+    <title>SolidCamAI | Manufacturing Intelligence</title>
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#FFFFD700">
@@ -29,17 +29,40 @@
         <aside id="sidebar" class="glass-panel">
             <div class="logo">
                 <i class="fas fa-bolt" style="color: #FFFFD700;"></i>
-                <span>SolidComAI</span>
+                <span>SolidCamAI</span>
             </div>
 
             <div class="sidebar-section">
                 <h3>Settings</h3>
                 <div class="input-group">
-                    <label>Data Connection</label>
-                    <div class="status-indicator">
-                        <div class="dot active"></div>
-                        <span>Unified Manufacturing Data</span>
+                    <label>Focus Area</label>
+                    <div class="select-wrapper">
+                        <select id="topic-select">
+                            <option value="efficiency">🚀 Production Efficiency</option>
+                            <option value="profitability">💰 Job Profitability</option>
+                            <option value="health" selected>⚙️ Machine Health</option>
+                            <option value="tools">🔧 Tool Management</option>
+                            <option value="workforce">👥 Workforce Performance</option>
+                            <option value="energy">⚡ Energy Efficiency</option>
+                            <option value="quality">📉 Quality Control</option>
+                        </select>
                     </div>
+                </div>
+            </div>
+
+            <!-- Live Alerts Section -->
+            <div class="sidebar-section">
+                <h3>Live Alerts <span class="pulse-dot"></span></h3>
+                <div id="live-alerts" class="alerts-container">
+                    <!-- Dynamic Content via JS -->
+                </div>
+            </div>
+
+            <!-- Admin Insights Section -->
+            <div class="sidebar-section">
+                <h3>Admin Insights</h3>
+                <div id="admin-insights" class="admin-container">
+                    <!-- Dynamic Content via JS -->
                 </div>
             </div>
         </aside>
