@@ -74,7 +74,8 @@ def ask(req):
            - Explicitly show calculation steps in a "Methodology" section if applicable.
         4. ALWAYS generate a relevant data visualization (chart) configuration if the answer involves quantifiable data.
            - Choose the best chart type: 'bar' (comparisons), 'line' (trends), 'pie' (distribution), or 'doughnut'.
-           - Ensure colors are suitable for a dark theme (Gold #FFFFD7, White #FFFFFF, Light Grey #E0E0E0).
+           - Focus purely on 'title', 'labels', and numeric 'data' in datasets.
+           - DO NOT provide colors; the frontend high-contrast engine handles presentation.
         
         Return pure JSON with this structure:
         {{
@@ -85,7 +86,7 @@ def ask(req):
                 "title": "Chart Title",
                 "labels": ["Label1", "Label2"],
                 "datasets": [
-                    {{ "label": "Series Name", "data": [10, 20], "backgroundColor": ["#FFFFD7", "#FFFFFF"] }}
+                    {{ "label": "Series Name", "data": [10, 20] }}
                 ]
             }}
         }}
