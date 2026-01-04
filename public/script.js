@@ -263,19 +263,34 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.appendChild(chartContainer);
         chatMessages.scrollTop = chatMessages.scrollHeight; // Scroll to show chart
 
-        // Default Dark Theme Colors
-        Chart.defaults.color = '#FFFFFF';
-        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.1)';
+        // High-Contrast Vibrant Palette for Dark Theme
+        const VIBRANT_PALETTE = [
+            '#FFFFD7', // Gold
+            '#00FFFF', // Cyan
+            '#FF9F43', // Orange
+            '#FF6B6B', // Red/Coral
+            '#10AC84', // Mint Green
+            '#54A0FF', // Sky Blue
+            '#A29BFE', // Lavender
+            '#FFFFFF'  // White
+        ];
+
+        // Default Dark Theme Config
+        Chart.defaults.color = 'rgba(255, 255, 255, 0.9)';
+        Chart.defaults.borderColor = 'rgba(255, 255, 255, 0.15)';
 
         new Chart(canvas, {
             type: vizData.type || 'bar',
             data: {
                 labels: vizData.labels,
-                datasets: vizData.datasets.map(ds => ({
+                datasets: vizData.datasets.map((ds, index) => ({
                     ...ds,
-                    borderWidth: 1,
-                    // High-contrast vibrant palette: Gold, White, Soft Grey, Amber/Orange
-                    backgroundColor: ds.backgroundColor || ['#FFFFD7', '#FFFFFF', '#E0E0E0', '#FFB74D', '#81C784']
+                    borderWidth: 2,
+                    // Force high-contrast colors; distribute palette among datasets
+                    backgroundColor: VIBRANT_PALETTE.slice(index % VIBRANT_PALETTE.length),
+                    borderColor: VIBRANT_PALETTE[index % VIBRANT_PALETTE.length],
+                    pointBackgroundColor: VIBRANT_PALETTE[index % VIBRANT_PALETTE.length],
+                    pointRadius: 4
                 }))
             },
             options: {
@@ -285,21 +300,46 @@ document.addEventListener('DOMContentLoaded', () => {
                     title: {
                         display: true,
                         text: vizData.title,
-                        font: { size: 16 }
+                        font: { size: 16, weight: 'bold' },
+                        color: '#FFFFD7'
                     },
                     legend: {
                         display: true,
-                        position: 'bottom'
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                            font: { size: 12 }
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#FFFFD7',
+                        bodyColor: '#FFFFFF',
+                        borderColor: '#FFFFD7',
+                        borderWidth: 1
                     }
                 },
                 scales: {
                     x: {
-                        ticks: { color: 'rgba(255,255,255,0.7)' },
-                        grid: { color: 'rgba(255,255,255,0.05)' }
+                        ticks: {
+                            color: 'rgba(255,255,255,0.8)',
+                            font: { size: 11 }
+                        },
+                        grid: {
+                            color: 'rgba(255,255,255,0.1)',
+                            drawBorder: true
+                        }
                     },
                     y: {
-                        ticks: { color: 'rgba(255,255,255,0.7)' },
-                        grid: { color: 'rgba(255,255,255,0.05)' }
+                        beginAtZero: true,
+                        ticks: {
+                            color: 'rgba(255,255,255,0.8)',
+                            font: { size: 11 }
+                        },
+                        grid: {
+                            color: 'rgba(255,255,255,0.1)',
+                            drawBorder: true
+                        }
                     }
                 }
             }
