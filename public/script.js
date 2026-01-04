@@ -161,26 +161,39 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     };
 
-    // Thinking Process Steps - Detailed Shop Floor Logic
-    const THINKING_STEPS = [
-        "Initializing Unified Shop Floor Schema (Machines, Tools, Jobs)...",
-        "Parsing Spindle Load & Vibration Signal Streams (500Hz)...",
-        "Correlating Maintenance Logs with Historic Out-of-Tolerance Events...",
-        "Validating Job Queue Metadata against CNC Controller Feedback...",
-        "Simulating Tool Wear Degradation Curves (Pearson Correlation)...",
-        "Aggregating OEE Data across VMC and HMC Work-centers...",
-        "Identifying Bottleneck Latencies in Material Handling Handshakes...",
-        "Calculating Financial Scrap Impact per Machine-Hour...",
-        "Synthesizing Cross-Reference Insight (Signals x Tool Life)...",
-        "Optimizing Visualization Parameters for Shop Floor Dashboard...",
-        "Generating Final Engineering Recommendations..."
+    // Deep Reasoning Architecture - Hierarchical Logic
+    const REASONING_STEPS = [
+        {
+            title: "Data Core Ingestion",
+            explanation: "Accessing the Unified Shop Floor Dataset. Synchronizing real-time streams from Machines, Jobs, and Tooling systems to ensure a singular source of truth for the analysis."
+        },
+        {
+            title: "Signal Stream Correlation",
+            explanation: "Analyzing high-frequency Spindle Load and Vibration signals. Correlating sensor deviations with active Job IDs to pinpoint precise moments of mechanical variance."
+        },
+        {
+            title: "Anomaly Pattern Matching",
+            explanation: "Comparing current machine behavior against historical baselines. Identifying 'Signature' anomalies (e.g., thermal drift in VMC-3) that typically precede out-of-tolerance parts."
+        },
+        {
+            title: "Financial Impact Modeling",
+            explanation: "Calculating scrap cost by cross-referencing completed quantities with hourly machine rates and material costs. Determining the 'Invisible' cost of downtime during this event."
+        },
+        {
+            title: "Root Cause Synthesis",
+            explanation: "Aggregating all findings into a technical diagnostic. Evaluating if the variance is due to Tool Wear, Operator Error, or Machine Degradation (Event ID #401)."
+        },
+        {
+            title: "Visualization & Report Tuning",
+            explanation: "Selecting optimized chart parameters to highlight the most critical data correlations for the shop floor dashboard. Finalizing engineering recommendations."
+        }
     ];
 
     let currentThinkingInterval;
 
-    // Helper: Simulate Thinking (Accordion Style)
+    // Helper: Simulate Thinking (Hierarchical Accordion)
     const simulateThinking = (container) => {
-        container.innerHTML = ''; // Clear default spinner
+        container.innerHTML = '';
 
         const reasoningBox = document.createElement('div');
         reasoningBox.className = 'reasoning-container loading';
@@ -188,7 +201,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const header = document.createElement('div');
         header.className = 'reasoning-header';
         header.innerHTML = `
-            <span><i class="fas fa-brain"></i> Reasoning Engine - Shop Floor Logic</span>
+            <span><i class="fas fa-microchip"></i> Advanced Reasoning Engine</span>
             <i class="fas fa-chevron-down"></i>
         `;
 
@@ -203,28 +216,38 @@ document.addEventListener('DOMContentLoaded', () => {
         reasoningBox.appendChild(content);
         container.appendChild(reasoningBox);
 
-        // Accordion Toggle
-        header.onclick = () => {
-            reasoningBox.classList.toggle('collapsed');
-        };
+        header.onclick = () => reasoningBox.classList.toggle('collapsed');
 
         let stepIndex = 0;
         const addStep = () => {
-            if (stepIndex >= THINKING_STEPS.length) {
+            if (stepIndex >= REASONING_STEPS.length) {
                 clearInterval(currentThinkingInterval);
                 return;
             }
-            const step = document.createElement('div');
-            step.className = 'reasoning-step';
-            step.textContent = THINKING_STEPS[stepIndex];
-            log.appendChild(step);
+
+            const stepData = REASONING_STEPS[stepIndex];
+            const stepContainer = document.createElement('div');
+            stepContainer.className = 'reasoning-step';
+
+            const title = document.createElement('div');
+            title.className = 'reasoning-main-step';
+            title.textContent = stepData.title;
+
+            const detail = document.createElement('div');
+            detail.className = 'reasoning-detail';
+            detail.textContent = stepData.explanation;
+
+            stepContainer.appendChild(title);
+            stepContainer.appendChild(detail);
+            log.appendChild(stepContainer);
+
             log.scrollTop = log.scrollHeight;
             stepIndex++;
         };
 
         addStep();
-        currentThinkingInterval = setInterval(addStep, 1000);
-        return reasoningBox; // Return to finalize later
+        currentThinkingInterval = setInterval(addStep, 1500); // Slower for readability
+        return reasoningBox;
     };
 
     // Helper: Render Chart (visuals)
