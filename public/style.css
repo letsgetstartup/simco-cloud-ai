@@ -262,16 +262,20 @@ select:focus {
 }
 
 .content ul,
-.content ol {
-    margin-left: 1.5rem;
-    margin-bottom: 1rem;
+.content strong {
+    color: var(--accent-color);
+    font-weight: 700;
 }
 
 .content code {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.15);
+    /* Slightly brighter background */
     padding: 2px 6px;
     border-radius: 4px;
-    font-family: monospace;
+    font-family: 'Consolas', monospace;
+    color: #FFFFFF !important;
+    /* Force White for visibility */
+    font-weight: 500;
 }
 
 .content pre {
@@ -282,23 +286,11 @@ select:focus {
     margin: 1rem 0;
 }
 
-.content strong {
-    color: var(--accent-color);
-    font-weight: 700;
-}
-
-.content code {
-    background: rgba(255, 255, 255, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-family: monospace;
-    color: var(--accent-color);
-    /* Explicit gold for inline code */
-}
-
 .content pre code {
-    color: #FFFFFF;
+    color: #FFFFFF !important;
     /* White for code blocks */
+    background: transparent;
+    padding: 0;
 }
 
 /* Suggestions & Follow-ups */
@@ -340,11 +332,13 @@ select:focus {
 }
 
 .suggestion-chip:hover {
-    background: var(--accent-color);
-    border-color: var(--accent-color);
-    color: #000;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.2);
+    background: #FFFFD7 !important;
+    /* Solid bright gold */
+    border-color: #FFFFD7 !important;
+    color: #000000 !important;
+    /* Solid black text */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 215, 0, 0.3);
 }
 
 /* Input Area Styling */

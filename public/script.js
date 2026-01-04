@@ -225,8 +225,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 datasets: vizData.datasets.map(ds => ({
                     ...ds,
                     borderWidth: 1,
-                    // If no background color provided, use Simco Gold/Grey
-                    backgroundColor: ds.backgroundColor || ['#FFFFD700', '#808080', '#FFFFFF', '#A9A9A9']
+                    // High-contrast vibrant palette: Gold, White, Soft Grey, Amber/Orange
+                    backgroundColor: ds.backgroundColor || ['#FFFFD7', '#FFFFFF', '#E0E0E0', '#FFB74D', '#81C784']
                 }))
             },
             options: {
