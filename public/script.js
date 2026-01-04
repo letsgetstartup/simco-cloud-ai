@@ -161,44 +161,70 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     };
 
-    // Thinking Process Steps
+    // Thinking Process Steps - Detailed Shop Floor Logic
     const THINKING_STEPS = [
-        "Connecting to Unified Schema...",
-        "Identifying relevant Machine IDs...",
-        "Fetching Real-time Signals (Hz)...",
-        "Correlating Events with Job History...",
-        "Detecting Anomalies in Spindle Load...",
-        "Calculating Efficiency Variances...",
-        "Cross-referencing Tool Life Data...",
-        "Generating Visualization Graph...",
-        "Finalizing Insight Report..."
+        "Initializing Unified Shop Floor Schema (Machines, Tools, Jobs)...",
+        "Parsing Spindle Load & Vibration Signal Streams (500Hz)...",
+        "Correlating Maintenance Logs with Historic Out-of-Tolerance Events...",
+        "Validating Job Queue Metadata against CNC Controller Feedback...",
+        "Simulating Tool Wear Degradation Curves (Pearson Correlation)...",
+        "Aggregating OEE Data across VMC and HMC Work-centers...",
+        "Identifying Bottleneck Latencies in Material Handling Handshakes...",
+        "Calculating Financial Scrap Impact per Machine-Hour...",
+        "Synthesizing Cross-Reference Insight (Signals x Tool Life)...",
+        "Optimizing Visualization Parameters for Shop Floor Dashboard...",
+        "Generating Final Engineering Recommendations..."
     ];
 
-    let thinkingInterval;
+    let currentThinkingInterval;
 
-    // Helper: Simulate Thinking
+    // Helper: Simulate Thinking (Accordion Style)
     const simulateThinking = (container) => {
         container.innerHTML = ''; // Clear default spinner
+
+        const reasoningBox = document.createElement('div');
+        reasoningBox.className = 'reasoning-container loading';
+
+        const header = document.createElement('div');
+        header.className = 'reasoning-header';
+        header.innerHTML = `
+            <span><i class="fas fa-brain"></i> Reasoning Engine - Shop Floor Logic</span>
+            <i class="fas fa-chevron-down"></i>
+        `;
+
+        const content = document.createElement('div');
+        content.className = 'reasoning-content';
+
         const log = document.createElement('div');
         log.className = 'reasoning-log';
-        container.appendChild(log);
+        content.appendChild(log);
+
+        reasoningBox.appendChild(header);
+        reasoningBox.appendChild(content);
+        container.appendChild(reasoningBox);
+
+        // Accordion Toggle
+        header.onclick = () => {
+            reasoningBox.classList.toggle('collapsed');
+        };
 
         let stepIndex = 0;
-
-        // Initial step
         const addStep = () => {
-            if (stepIndex >= THINKING_STEPS.length) stepIndex = 0; // Loop or stop
+            if (stepIndex >= THINKING_STEPS.length) {
+                clearInterval(currentThinkingInterval);
+                return;
+            }
             const step = document.createElement('div');
             step.className = 'reasoning-step';
             step.textContent = THINKING_STEPS[stepIndex];
             log.appendChild(step);
-            // Keep only last 3 steps visible to prevent scrolling issues
-            if (log.children.length > 3) log.removeChild(log.firstChild);
+            log.scrollTop = log.scrollHeight;
             stepIndex++;
         };
 
         addStep();
-        thinkingInterval = setInterval(addStep, 1200); // New step every 1.2s
+        currentThinkingInterval = setInterval(addStep, 1000);
+        return reasoningBox; // Return to finalize later
     };
 
     // Helper: Render Chart (visuals)
@@ -279,6 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.appendChild(loadingDiv);
 
         // Start Reasoning Simulation
+        const startTime = performance.now();
         simulateThinking(loadingDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
@@ -293,9 +320,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const data = await response.json();
 
-            // Stop Reasoning & Remove Loading
-            clearInterval(thinkingInterval);
-            chatMessages.removeChild(loadingDiv);
+            // Stop Reasoning & Finalize UI
+            clearInterval(currentThinkingInterval);
+
+            const reasoningBox = loadingDiv.querySelector('.reasoning-container');
+            if (reasoningBox) {
+                reasoningBox.classList.remove('loading');
+                reasoningBox.classList.add('collapsed'); // Collapse by default once done
+                const headerSpan = reasoningBox.querySelector('.reasoning-header span');
+                headerSpan.innerHTML = '<i class="fas fa-check-circle" style="color: #4CAF50"></i> Thought for ' + (Math.round(performance.now() - startTime) / 1000).toFixed(1) + 's';
+            }
+
+            loadingDiv.classList.remove('loading'); // Keep the reasoning box, just remove loading state
 
             if (data.answer) {
                 addMessage('assistant', data.answer);

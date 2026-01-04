@@ -66,21 +66,26 @@ def ask(req):
         Instructions:
         1. Analyze the unified data to answer the question.
         2. Perform calculations and cross-references (e.g., correlations between signals and tools).
-        3. Format the text answer in Markdown.
+        3. Format the text answer in Markdown with a professional, industry-standard structure:
+           - Use clear Titles (##) and Sub-titles (###).
+           - Use Emojis as icons for key sections (e.g., 📊 Analysis, 🔧 Methodology, 🚀 Recommendations, 💰 Cost Impact).
+           - Use Bold (**text**) for key metrics and findings.
+           - Use Bullet points for lists.
+           - Explicitly show calculation steps in a "Methodology" section if applicable.
         4. ALWAYS generate a relevant data visualization (chart) configuration if the answer involves quantifiable data.
            - Choose the best chart type: 'bar' (comparisons), 'line' (trends), 'pie' (distribution), or 'doughnut'.
-           - Ensure colors are suitable for a dark theme (Gold #FFFFD700, White #FFFFFF, Grey #808080).
+           - Ensure colors are suitable for a dark theme (Gold #FFFFD7, White #FFFFFF, Light Grey #E0E0E0).
         
         Return pure JSON with this structure:
         {{
-            "answer": "Markdown answer here...",
+            "answer": "Professional Markdown answer here...",
             "follow_up": ["Complex Question 1", "Complex Question 2", "Complex Question 3"],
             "visualization": {{
                 "type": "bar", 
                 "title": "Chart Title",
                 "labels": ["Label1", "Label2"],
                 "datasets": [
-                    {{ "label": "Series Name", "data": [10, 20], "backgroundColor": ["#FFFFD700", "#FFFFFF"] }}
+                    {{ "label": "Series Name", "data": [10, 20], "backgroundColor": ["#FFFFD7", "#FFFFFF"] }}
                 ]
             }}
         }}

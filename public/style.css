@@ -2,7 +2,7 @@
 :root {
     --bg-color: #0F0F0F;
     --panel-bg: rgba(30, 30, 30, 0.7);
-    --accent-color: #FFFFD700;
+    --accent-color: #FFFFD7;
     --text-primary: #FFFFFF;
     --text-secondary: rgba(255, 255, 255, 0.6);
     --border-color: rgba(255, 255, 255, 0.1);
@@ -175,6 +175,114 @@ select:focus {
     border-radius: 10px;
 }
 
+/* Reasoning Accordion Styling */
+.reasoning-container {
+    margin: 1rem 0;
+    border: 1px solid rgba(255, 255, 215, 0.15);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    overflow: hidden;
+}
+
+.reasoning-header {
+    background: rgba(255, 215, 0, 0.05);
+    padding: 0.8rem 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--accent-color);
+    transition: background 0.2s;
+}
+
+.reasoning-header:hover {
+    background: rgba(255, 215, 0, 0.08);
+}
+
+.reasoning-header i {
+    transition: transform 0.3s;
+    font-size: 0.8rem;
+}
+
+.reasoning-container.collapsed .reasoning-header i {
+    transform: rotate(-90deg);
+}
+
+.reasoning-content {
+    padding: 0;
+    max-height: 500px;
+    transition: max-height 0.4s ease-out, padding 0.4s;
+}
+
+.reasoning-container.collapsed .reasoning-content {
+    max-height: 0;
+    padding: 0;
+    border-top: none;
+}
+
+.reasoning-log {
+    padding: 1rem 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+.reasoning-step {
+    font-family: 'Consolas', monospace;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.8);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    animation: fadeInStep 0.5s forwards;
+}
+
+.reasoning-step::before {
+    content: '>';
+    color: var(--accent-color);
+    font-weight: bold;
+}
+
+.reasoning-status {
+    font-size: 0.75rem;
+    color: var(--accent-color);
+    margin-right: 10px;
+}
+
+@keyframes fadeInStep {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.reasoning-container.loading .reasoning-header::after {
+    content: '';
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--accent-color);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-left: 10px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .message {
     display: flex;
     gap: 16px;
@@ -250,7 +358,17 @@ select:focus {
 .content h1,
 .content h2,
 .content h3 {
-    margin: 1rem 0 0.5rem 0;
+    margin: 1.5rem 0 0.8rem 0;
+    color: var(--accent-color);
+}
+
+.content ul,
+.content ol {
+    margin-left: 1.8rem;
+    margin-bottom: 1.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .content p {
