@@ -161,7 +161,47 @@ document.addEventListener('DOMContentLoaded', () => {
         chatMessages.scrollTop = chatMessages.scrollHeight;
     };
 
-    // Helper: Render Chart
+    // Thinking Process Steps
+    const THINKING_STEPS = [
+        "Connecting to Unified Schema...",
+        "Identifying relevant Machine IDs...",
+        "Fetching Real-time Signals (Hz)...",
+        "Correlating Events with Job History...",
+        "Detecting Anomalies in Spindle Load...",
+        "Calculating Efficiency Variances...",
+        "Cross-referencing Tool Life Data...",
+        "Generating Visualization Graph...",
+        "Finalizing Insight Report..."
+    ];
+
+    let thinkingInterval;
+
+    // Helper: Simulate Thinking
+    const simulateThinking = (container) => {
+        container.innerHTML = ''; // Clear default spinner
+        const log = document.createElement('div');
+        log.className = 'reasoning-log';
+        container.appendChild(log);
+
+        let stepIndex = 0;
+
+        // Initial step
+        const addStep = () => {
+            if (stepIndex >= THINKING_STEPS.length) stepIndex = 0; // Loop or stop
+            const step = document.createElement('div');
+            step.className = 'reasoning-step';
+            step.textContent = THINKING_STEPS[stepIndex];
+            log.appendChild(step);
+            // Keep only last 3 steps visible to prevent scrolling issues
+            if (log.children.length > 3) log.removeChild(log.firstChild);
+            stepIndex++;
+        };
+
+        addStep();
+        thinkingInterval = setInterval(addStep, 1200); // New step every 1.2s
+    };
+
+    // Helper: Render Chart (visuals)
     const renderChart = (vizData) => {
         if (!vizData) return;
 
@@ -233,11 +273,13 @@ document.addEventListener('DOMContentLoaded', () => {
         userInput.style.height = 'auto';
         sendBtn.disabled = true;
 
-        // Loading message
+        // Loading message with Thinking Process
         const loadingDiv = document.createElement('div');
         loadingDiv.className = 'message assistant loading';
-        loadingDiv.innerHTML = '<div class="avatar"><i class="fas fa-robot"></i></div><div class="content"><i class="fas fa-circle-notch fa-spin"></i> Analyzing unified shop floor data...</div>';
         chatMessages.appendChild(loadingDiv);
+
+        // Start Reasoning Simulation
+        simulateThinking(loadingDiv);
         chatMessages.scrollTop = chatMessages.scrollHeight;
 
         try {
@@ -250,6 +292,9 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             const data = await response.json();
+
+            // Stop Reasoning & Remove Loading
+            clearInterval(thinkingInterval);
             chatMessages.removeChild(loadingDiv);
 
             if (data.answer) {
@@ -268,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 addMessage('assistant', `❌ Error: ${data.error}`);
             }
         } catch (error) {
+            clearInterval(thinkingInterval);
             chatMessages.removeChild(loadingDiv);
             addMessage('assistant', '❌ Failed to connect to the backend. Ensure the deployment is complete.');
             console.error('Fetch error:', error);

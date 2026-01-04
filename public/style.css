@@ -284,6 +284,21 @@ select:focus {
 
 .content strong {
     color: var(--accent-color);
+    font-weight: 700;
+}
+
+.content code {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: monospace;
+    color: var(--accent-color);
+    /* Explicit gold for inline code */
+}
+
+.content pre code {
+    color: #FFFFFF;
+    /* White for code blocks */
 }
 
 /* Suggestions & Follow-ups */
@@ -325,10 +340,11 @@ select:focus {
 }
 
 .suggestion-chip:hover {
-    background: rgba(255, 215, 0, 0.1);
+    background: var(--accent-color);
     border-color: var(--accent-color);
-    color: var(--accent-color);
+    color: #000;
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(255, 215, 0, 0.2);
 }
 
 /* Input Area Styling */
@@ -627,4 +643,44 @@ textarea {
     outline: none;
     border-color: #ffd700;
     box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.1);
+}
+
+/* Reasoning/Thinking Log Styles */
+.reasoning-log {
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85rem;
+    color: var(--accent-color);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 215, 0, 0.1);
+    margin-bottom: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 280px;
+}
+
+.reasoning-step {
+    opacity: 0;
+    transform: translateY(5px);
+    animation: stepFadeIn 0.3s forwards;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #FFFFFF;
+    /* Bright white for visibility */
+}
+
+.reasoning-step::before {
+    content: '>';
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: bold;
+}
+
+@keyframes stepFadeIn {
+    to {
+        opacity: 0.9;
+        transform: translateY(0);
+    }
 }
