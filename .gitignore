@@ -8,3 +8,4 @@ simco_demo_dataset_30d/
 *.sqlite
 .env
 .firebase/
+ui-debug.log

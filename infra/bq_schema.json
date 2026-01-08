@@ -1,0 +1,62 @@
+[
+    {
+        "name": "event_id",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "Unique ID of the event"
+    },
+    {
+        "name": "tenant_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+    },
+    {
+        "name": "site_id",
+        "type": "STRING",
+        "mode": "REQUIRED"
+    },
+    {
+        "name": "machine_id",
+        "type": "STRING",
+        "mode": "NULLABLE"
+    },
+    {
+        "name": "event_type",
+        "type": "STRING",
+        "mode": "REQUIRED",
+        "description": "e.g., STOP, DOWNTIME, ALARM"
+    },
+    {
+        "name": "reason_code",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Normalized reason code"
+    },
+    {
+        "name": "reason_text",
+        "type": "STRING",
+        "mode": "NULLABLE",
+        "description": "Raw reason text"
+    },
+    {
+        "name": "start_ts",
+        "type": "TIMESTAMP",
+        "mode": "REQUIRED"
+    },
+    {
+        "name": "end_ts",
+        "type": "TIMESTAMP",
+        "mode": "NULLABLE"
+    },
+    {
+        "name": "duration_seconds",
+        "type": "INTEGER",
+        "mode": "NULLABLE"
+    },
+    {
+        "name": "ingested_at",
+        "type": "TIMESTAMP",
+        "mode": "NULLABLE",
+        "defaultValueExpression": "CURRENT_TIMESTAMP()"
+    }
+]

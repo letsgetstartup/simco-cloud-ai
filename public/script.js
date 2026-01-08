@@ -252,7 +252,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper: Render Chart (visuals)
     const renderChart = (vizData) => {
-        if (!vizData) return;
+        if (!vizData || !vizData.labels || !vizData.datasets || !Array.isArray(vizData.datasets)) {
+            console.warn('Invalid or empty visualization data provided.');
+            return;
+        }
 
         const chartContainer = document.createElement('div');
         chartContainer.className = 'chart-container';
@@ -378,7 +381,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/ask', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ question }) // No interaction with collection anymore
+                body: JSON.stringify({
+                    question,
+                    tenant_id: 'test_tenant', // Default test context
+                    site_id: 'test_site'
+                })
             });
 
             const data = await response.json();
@@ -394,28 +401,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 headerSpan.innerHTML = '<i class="fas fa-check-circle" style="color: #4CAF50"></i> Thought for ' + (Math.round(performance.now() - startTime) / 1000).toFixed(1) + 's';
             }
 
-            loadingDiv.classList.remove('loading'); // Keep the reasoning box, just remove loading state
+            loadingDiv.classList.remove('loading');
 
             if (data.answer) {
                 addMessage('assistant', data.answer);
 
-                // Render Chart if Visualization Data exists
-                if (data.visualization) {
-                    renderChart(data.visualization);
+                // Render Chart and Follow-ups with isolated error handling
+                try {
+                    if (data.visualization && Object.keys(data.visualization).length > 0) {
+                        renderChart(data.visualization);
+                    }
+                } catch (vizError) {
+                    console.error('Visualization error:', vizError);
                 }
 
-                // Show Follow-up Questions from Backend
-                if (data.follow_up && Array.isArray(data.follow_up)) {
-                    showFollowUpQuestions(data.follow_up);
+                try {
+                    if (data.follow_up && Array.isArray(data.follow_up)) {
+                        showFollowUpQuestions(data.follow_up);
+                    }
+                } catch (followError) {
+                    console.error('Follow-up rendering error:', followError);
                 }
             } else if (data.error) {
                 addMessage('assistant', `❌ Error: ${data.error}`);
             }
         } catch (error) {
-            clearInterval(thinkingInterval);
-            chatMessages.removeChild(loadingDiv);
-            addMessage('assistant', '❌ Failed to connect to the backend. Ensure the deployment is complete.');
             console.error('Fetch error:', error);
+            clearInterval(currentThinkingInterval);
+            if (loadingDiv && loadingDiv.parentNode) {
+                chatMessages.removeChild(loadingDiv);
+            }
+            addMessage('assistant', '❌ Failed to process the request. The AI might be temporarily overloaded.');
         } finally {
             sendBtn.disabled = false;
         }
