@@ -98,12 +98,15 @@ def check_data_quality(client, tenant_id, site_id):
         logger.warning("DQ Check failed", extra={"error": str(e)})
         return "UNKNOWN", [f"Data quality status unavailable: {str(e)}"]
 
-def execute_metric_query(req: ExecuteRequest):
+from bigquery_client import get_impersonated_bq_client
+
+def execute_metric_query(req: ExecuteRequest, client: bigquery.Client = None):
     metric_def = registry.get_metric(req.query_type)
     if not metric_def:
         raise HTTPException(status_code=400, detail=f"INVALID_QUERY_TYPE: {req.query_type}")
 
-    client = get_bq_client()
+    if not client:
+        client = get_bq_client()
     
     # 1. Data Quality Gate
     confidence, dq_warnings = check_data_quality(client, req.tenant_id, req.site_id)
@@ -195,6 +198,11 @@ def execute_metric_query(req: ExecuteRequest):
             "duration_days": round(delta.total_seconds() / 86400, 2),
             "source": "rollup" if use_rollup else "raw"
         },
+        "effective_filters": {
+            "tenant_id": req.tenant_id,
+            "site_id": req.site_id,
+            "machine_id": req.machine_id
+        },
         "rows": rows,
         "visualization": metric_def.get("visualization"),
         "audit": {
@@ -217,18 +225,29 @@ def execute_metric_query(req: ExecuteRequest):
 
 @router.post("/execute")
 def execute(req: ExecuteRequest, request: Request):
-    # Security: Reinforce tenant isolation
-    # In production, this would be extracted from a verified OIDC token
-    provided_tenant = request.headers.get("X-Tenant-ID")
-    if provided_tenant and provided_tenant != req.tenant_id:
-        logger.warning("Security alert: Tenant mismatch detected", extra={
-            "header_tenant": provided_tenant,
-            "body_tenant": req.tenant_id
+    # Identity-Based Security: Enforce tenant isolation
+    # The X-Tenant-ID header is the 'trusted' source propagated from the gateway/functions
+    trusted_tenant = request.headers.get("X-Tenant-ID")
+    
+    if not trusted_tenant:
+        logger.error("Security alert: Missing trusted tenant identity header")
+        raise HTTPException(status_code=401, detail="UNAUTHORIZED: Missing tenant identity.")
+
+    # Override/Validate: Ensure the payload tenant_id matches the trusted identity
+    if req.tenant_id != trusted_tenant:
+        logger.warning("Security alert: Tenant mismatch attempt detected", extra={
+            "trusted_tenant": trusted_tenant,
+            "requested_tenant": req.tenant_id
         })
-        raise HTTPException(status_code=403, detail="FORBIDDEN: Tenant context mismatch.")
+        # Force the trusted identity
+        req.tenant_id = trusted_tenant 
+        # Alternatively, we could reject:
+        # raise HTTPException(status_code=403, detail="FORBIDDEN: Identity mismatch.")
 
     try:
-        return execute_metric_query(req)
+        # We pass the impersonated client to ensure identity-based RLS enforcement
+        bq_client = get_impersonated_bq_client(trusted_tenant)
+        return execute_metric_query(req, client=bq_client)
     except HTTPException as he:
         raise he
     except Exception as e:

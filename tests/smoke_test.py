@@ -101,22 +101,37 @@ class TestMetricsPipeline(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("End time must be after start time", response.text)
 
-    def test_tenant_security(self):
-        """Test that the service rejects requests with mismatched tenant headers."""
+    def test_tenant_security_override_attempt(self):
+        """Test that the service ignores tenant_id in payload and uses identity header."""
         url = f"{METRICS_SERVICE_URL}/execute"
         payload = {
             "query_type": "TOP_DOWNTIME_REASONS",
-            "tenant_id": "malicious_tenant",
+            "tenant_id": "malicious_tenant", # Payload attempt
             "site_id": self.site_id,
             "time_range": {
                 "start": self.start_ts,
                 "end": self.end_ts
             }
         }
-        # Header has "test_tenant", body has "malicious_tenant"
+        # Identity header is "test_tenant". The service should override payload and return test_tenant data.
         response = requests.post(url, json=payload, headers=self.headers)
-        self.assertEqual(response.status_code, 403)
-        self.assertIn("Tenant context mismatch", response.text)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["effective_filters"]["tenant_id"], "test_tenant")
+        self.assertNotIn("malicious_tenant", str(data))
+
+    def test_missing_identity_header(self):
+        """Test that the service rejects requests without the trusted identity header."""
+        url = f"{METRICS_SERVICE_URL}/execute"
+        payload = {
+            "query_type": "TOP_DOWNTIME_REASONS",
+            "tenant_id": self.tenant_id,
+            "site_id": self.site_id,
+            "time_range": {"start": self.start_ts, "end": self.end_ts}
+        }
+        response = requests.post(url, json=payload, headers={}) # No X-Tenant-ID
+        self.assertEqual(response.status_code, 401)
+        self.assertIn("Missing tenant identity", response.text)
 
 if __name__ == "__main__":
     unittest.main()

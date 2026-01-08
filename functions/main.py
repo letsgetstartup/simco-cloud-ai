@@ -49,9 +49,25 @@ def ask(req):
         # 0. Deterministic Metric Routing
         query_type = data.get("query_type")
         time_range = data.get("time_range")
+        
+        # Identity Hardening: Extract tenant context from auth/headers, NEVER from client body
+        # In a real setup, we would verify the JWT and extract claims.
+        trusted_tenant_id = None
+        auth_header = req.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            # Simulation: In production, use firebase_admin.auth.verify_id_token()
+            trusted_tenant_id = req.headers.get("X-Tenant-ID") # Simplified for demo/emulator
+        else:
+            trusted_tenant_id = req.headers.get("X-Tenant-ID")
+
+        if not trusted_tenant_id:
+             return https_fn.Response(json.dumps({
+                 'error': 'UNAUTHORIZED',
+                 'details': 'Missing trusted tenant identity context.'
+             }), status=401, headers=headers)
 
         if query_type:
-            print(f"Deterministic Metric Request: {query_type}")
+            print(f"Deterministic Metric Request: {query_type} for Tenant: {trusted_tenant_id}")
             if not time_range:
                 return https_fn.Response(json.dumps({
                     'error': 'MISSING_TIME_RANGE',
@@ -63,16 +79,21 @@ def ask(req):
                 auth_req = Request()
                 token = id_token.fetch_id_token(auth_req, METRICS_SERVICE_URL)
 
+                metrics_req_payload = {
+                    "query_type": query_type,
+                    "tenant_id": trusted_tenant_id, # Use ONLY the trusted ID
+                    "site_id": data.get("site_id", "test_site"),
+                    "machine_id": data.get("machine_id"),
+                    "time_range": time_range
+                }
+
                 response = requests.post(
                     f"{METRICS_SERVICE_URL}/execute",
-                    json={
-                        "query_type": query_type,
-                        "tenant_id": data.get("tenant_id", "test_tenant"),
-                        "site_id": data.get("site_id", "test_site"),
-                        "machine_id": data.get("machine_id"),
-                        "time_range": time_range
+                    json=metrics_req_payload,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "X-Tenant-ID": trusted_tenant_id # Propagate identity for RLS enforcement
                     },
-                    headers={"Authorization": f"Bearer {token}"},
                     timeout=15
                 )
                 

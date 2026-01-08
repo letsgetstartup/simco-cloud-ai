@@ -1,25 +1,22 @@
--- BigQuery RLS Setup Script
--- Implementation of Workstream E3 (Tenant Isolation)
-
--- 1. Create Row Access Policy for events_fact
-CREATE OR REPLACE ROW ACCESS POLICY tenant_isolation_policy
+-- 1. Identity-Bound Policy for Tenant: test_tenant
+CREATE OR REPLACE ROW ACCESS POLICY rls_test_tenant
 ON `{{PROJECT_ID}}.simco_ai.events_fact`
-GRANT TO ("domain:google.com", "serviceAccount:{{SERVICE_ACCOUNT}}")
-FILTER USING (
-  -- In a production multi-tenant setup, we would use:
-  -- tenant_id = SESSION_USER() OR (current IAM user mapping)
-  -- For this implementation, we demonstrate the filtering logic:
-  tenant_id IS NOT NULL 
-);
+GRANT TO ("serviceAccount:metrics-tenant-test@{{PROJECT_ID}}.iam.gserviceaccount.com")
+FILTER USING (tenant_id = "test_tenant");
 
--- 2. Create Row Access Policy for daily rollups
-CREATE OR REPLACE ROW ACCESS POLICY tenant_isolation_rollup_policy
+-- 2. Identity-Bound Policy for Tenant: demo_tenant
+CREATE OR REPLACE ROW ACCESS POLICY rls_demo_tenant
+ON `{{PROJECT_ID}}.simco_ai.events_fact`
+GRANT TO ("serviceAccount:metrics-tenant-demo@{{PROJECT_ID}}.iam.gserviceaccount.com")
+FILTER USING (tenant_id = "demo_tenant");
+
+-- Repeat similar patterns for events_daily_rollup and dq_metrics...
+CREATE OR REPLACE ROW ACCESS POLICY rls_rollup_test_tenant
 ON `{{PROJECT_ID}}.simco_ai.events_daily_rollup`
-GRANT TO ("domain:google.com", "serviceAccount:{{SERVICE_ACCOUNT}}")
-FILTER USING (tenant_id IS NOT NULL);
+GRANT TO ("serviceAccount:metrics-tenant-test@{{PROJECT_ID}}.iam.gserviceaccount.com")
+FILTER USING (tenant_id = "test_tenant");
 
--- 3. Create Row Access Policy for DQ metrics
-CREATE OR REPLACE ROW ACCESS POLICY tenant_isolation_dq_policy
+CREATE OR REPLACE ROW ACCESS POLICY rls_dq_test_tenant
 ON `{{PROJECT_ID}}.simco_ai.dq_metrics`
-GRANT TO ("domain:google.com", "serviceAccount:{{SERVICE_ACCOUNT}}")
-FILTER USING (tenant_id IS NOT NULL);
+GRANT TO ("serviceAccount:metrics-tenant-test@{{PROJECT_ID}}.iam.gserviceaccount.com")
+FILTER USING (tenant_id = "test_tenant");
