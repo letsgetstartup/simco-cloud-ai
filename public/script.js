@@ -380,10 +380,13 @@ document.addEventListener('DOMContentLoaded', () => {
             // In production, we use the rewrite path /ask
             const response = await fetch('/ask', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Tenant-ID': 'test_tenant' // Secure identity propagation
+                },
                 body: JSON.stringify({
                     question,
-                    tenant_id: 'test_tenant', // Default test context
+                    tenant_id: 'test_tenant',
                     site_id: 'test_site'
                 })
             });

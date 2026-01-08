@@ -2,3 +2,4 @@ fastapi
 uvicorn[standard]
 google-cloud-bigquery
 pydantic
+python-json-logger

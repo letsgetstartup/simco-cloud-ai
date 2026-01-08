@@ -15,6 +15,7 @@ def test_top_downtime_reasons():
     end_ts = now + datetime.timedelta(hours=1) # slightly future to catch everything
     
     payload = {
+        "query_type": "TOP_DOWNTIME_REASONS",
         "tenant_id": "test_tenant",
         "site_id": "test_site",
         "time_range": {
@@ -25,7 +26,8 @@ def test_top_downtime_reasons():
     
     print(f"Testing with payload: {payload}")
     
-    response = client.post("/metrics/top-downtime-reasons", json=payload)
+    # We need to send X-Tenant-ID header since it is required for security
+    response = client.post("/execute", json=payload, headers={"X-Tenant-ID": "test_tenant"})
     
     print(f"Status Code: {response.status_code}")
     print(f"Response: {response.json()}")

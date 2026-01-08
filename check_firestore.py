@@ -1,17 +1,15 @@
+import firebase_admin
+from firebase_admin import credentials, firestore
 import os
-from google.cloud import firestore
-
-PROJECT_ID = "solidcam-f58bc"
-
-def check_dates():
-    db = firestore.Client(project=PROJECT_ID)
-    docs = db.collection("events").order_by("start_ts").limit(1).stream()
-    for doc in docs:
-        print(f"Oldest event: {doc.to_dict().get('start_ts')}")
-    
-    docs = db.collection("events").order_by("start_ts", direction=firestore.Query.DESCENDING).limit(1).stream()
-    for doc in docs:
-        print(f"Newest event: {doc.to_dict().get('start_ts')}")
-
-if __name__ == "__main__":
-    check_dates()
+os.environ["FIRESTORE_EMULATOR_HOST"] = "127.0.0.1:8080"
+try:
+    # Use anonymous credentials for emulator
+    cred = credentials.AnonymousCredentials()
+    firebase_admin.initialize_app(cred, {'projectId': 'solidcam-f58bc'})
+    db = firestore.client()
+    cols = ['machines', 'jobs', 'events', 'tools', 'signals']
+    for col in cols:
+        docs = list(db.collection(col).limit(1).stream())
+        print(f"{col}: {len(docs)} documents")
+except Exception as e:
+    print(f"Error: {e}")

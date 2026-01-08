@@ -166,28 +166,50 @@ def ask(req):
                 return https_fn.Response(json.dumps({'error': 'METRICS_SYSTEM_FAILURE', 'details': str(e)}), status=500, headers=headers)
 
         # 1. Fallback: Check for "leakage" of metric questions into conversational path
-        bq_keywords = {"reasons", "why", "stop", "stopped", "downtime", "metric", "calculation", "uptime", "distribution", "analysis", "compare", "most", "highest", "lowest", "trend", "hour", "which", "machine"}
+        bq_keywords = {"metric", "calculation"} # significantly relaxed to allow natural language questions
         clean_q = "".join(c for c in question if c.isalnum() or c.isspace())
         question_words = set(clean_q.split())
         
+        # Logic Patch: Handle common machine_id shorthands for Bosch (M01 vs 01)
+        # We proactively normalize this even if we don't return early
+        question_raw = question_raw.replace("machine 0", "machine M0").replace("machine 1", "machine M01")
+
         if any(kw in question_words for kw in bq_keywords):
              return https_fn.Response(json.dumps({
-                 "answer": "I've detected a request for numeric insights. To ensure accuracy, please select a specific metric from the dashboard.",
-                 "suggestion": "Deterministic metrics require an explicit query_type and time_range."
+                 "answer": "I've detected a request for raw metric calculation. To ensure accuracy, please select a specific metric from the dashboard.",
+                 "suggestion": "For precise metric tracking, use the 'Settings' sidebar.",
+                 "original_query": question_raw
              }), status=200, headers=headers)
 
         # 1. Fetch data from ALL collections (Unified View)
-        collections_to_fetch = ['machines', 'jobs', 'events', 'tools', 'signals']
+        collections_to_fetch = ['machines', 'jobs', 'tools']
         unified_data = {}
         
+        # 1.1 Firestore Metadata
         for col_name in collections_to_fetch:
-            docs = db.collection(col_name).limit(30).stream()
+            docs = db.collection(col_name).limit(10).stream()
             data_list = [doc.to_dict() for doc in docs]
-            if data_list:
-                df = pd.DataFrame(data_list)
-                unified_data[col_name] = df.to_dict(orient="records")
-            else:
-                unified_data[col_name] = []
+            unified_data[col_name] = data_list
+
+        # 1.2 BigQuery Evidence (The source of truth for Bosch data)
+        try:
+            from google.cloud import bigquery
+            bq_client = bigquery.Client(project="solidcam-f58bc")
+            bq_query = f"""
+                SELECT event_type, machine_id, start_ts, duration_seconds 
+                FROM `solidcam-f58bc.simco_ai.events_fact` 
+                WHERE tenant_id = '{trusted_tenant_id}'
+                ORDER BY start_ts DESC LIMIT 20
+            """
+            bq_docs = bq_client.query(bq_query).result()
+            unified_data["events"] = [dict(row) for row in bq_docs]
+            # Convert datetime to string for JSON serialization
+            for ev in unified_data["events"]:
+                if 'start_ts' in ev and ev['start_ts']:
+                    ev['start_ts'] = ev['start_ts'].isoformat()
+        except Exception as bqe:
+            print(f"BigQuery context fetch failed: {bqe}")
+            unified_data["events"] = []
 
         data_context = json.dumps(unified_data, indent=2)
 
@@ -205,10 +227,11 @@ def ask(req):
         User Question: "{question_raw}"
         
         Instructions:
-        1. Analyze the unified data to answer the question.
+        1. Analyze the unified data provided to answer the question.
         2. Perform calculations and cross-references.
         3. Format the text answer in Markdown with a professional structure.
         4. ALWAYS generate a relevant data visualization (chart) configuration if quantifiable data is involved.
+        5. If there is NO DATA matching the query in the provided context, explain this in the "answer" text. Do NOT return an "error" key in the JSON.
         
         Return pure JSON with this structure:
         {{
