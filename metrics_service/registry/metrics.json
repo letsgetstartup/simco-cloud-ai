@@ -11,6 +11,10 @@
             "optional_params": [
                 "machine_id"
             ],
+            "dq_required": [
+                "MIN_EVENT_VOLUME",
+                "NO_NEGATIVE_DURATIONS"
+            ],
             "visualization": {
                 "type": "bar",
                 "x": "reason",
@@ -28,6 +32,9 @@
             "optional_params": [
                 "machine_id"
             ],
+            "dq_required": [
+                "MIN_EVENT_VOLUME"
+            ],
             "visualization": {
                 "type": "bar",
                 "x": "machine_id",
@@ -44,6 +51,9 @@
             ],
             "optional_params": [
                 "machine_id"
+            ],
+            "dq_required": [
+                "MIN_EVENT_VOLUME"
             ],
             "visualization": {
                 "type": "line",

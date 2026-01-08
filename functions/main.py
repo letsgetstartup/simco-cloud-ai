@@ -124,21 +124,20 @@ def ask(req):
                 
                 hallucinated = [n for n in llm_numbers if n not in raw_values]
                 
-                confidence_warning = None
+                final_answer = answer_text
                 if hallucinated:
                     print(f"GUARDRAIL TRIGGERED: Hallucinated numbers detected: {hallucinated}")
-                    confidence_warning = "Note: A potential numeric inconsistency was detected in the AI narrative. Please refer primarily to the raw data table below."
-                    # In a strict enterprise mode, we might even block the answer. 
-                    # For now, we append a clear warning.
-                    answer_text = f"{answer_text}\n\n> [!CAUTION]\n> {confidence_warning}"
-
+                    # Strict Policy: Discard drifted narrative
+                    final_answer = "An automated explanation was generated but discarded due to a detected numeric inconsistency. Please refer to the validated data and visualizations below."
+                
                 return https_fn.Response(json.dumps({
-                    "answer": answer_text,
+                    "answer": final_answer,
                     "visualization": data.get("visualization") or metrics_data.get("visualization"),
                     "audit": metrics_data.get("audit"),
                     "metric_version": metrics_data.get("metric_version"),
                     "confidence": metrics_data.get("confidence"),
-                    "citations": metrics_data.get("citations", []) + [{"type": "llm_explanation", "engine": "gemini-1.5-flash"}]
+                    "query_hash": metrics_data.get("audit", {}).get("query_hash"),
+                    "citations": metrics_data.get("citations", []) + [{"type": "llm_explanation", "engine": "gemini-1.5-flash", "guarded": True}]
                 }), status=200, headers=headers)
 
             except Exception as e:

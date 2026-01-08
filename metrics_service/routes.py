@@ -108,6 +108,24 @@ def execute_metric_query(req: ExecuteRequest):
     # 1. Data Quality Gate
     confidence, dq_warnings = check_data_quality(client, req.tenant_id, req.site_id)
     
+    # Policy Enforcement: If registry specifies required DQ checks and confidence is LOW/UNKNOWN, block execution.
+    dq_required = metric_def.get("dq_required", [])
+    if dq_required and confidence in ["LOW", "UNKNOWN"]:
+        logger.error("DQ Gating Failure: Metric required high-quality data but DQ confidence is insufficient.", extra={
+            "query_type": req.query_type,
+            "confidence": confidence,
+            "dq_required": dq_required
+        })
+        raise HTTPException(
+            status_code=409, 
+            detail={
+                "error": "DATA_QUALITY_FAILED",
+                "confidence": confidence,
+                "warnings": dq_warnings,
+                "required_dq": dq_required
+            }
+        )
+    
     # 2. Validation: Strict time window
     try:
         start_dt = datetime.datetime.fromisoformat(req.time_range.start.replace('Z', '+00:00'))
