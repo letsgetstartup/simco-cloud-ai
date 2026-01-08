@@ -1,2 +1,5 @@
 google-cloud-bigquery
 google-cloud-firestore
+pandas
+pyarrow
+db-dtypes

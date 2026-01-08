@@ -5,13 +5,20 @@ import pandas as pd
 import json
 import os
 import requests
+import google.auth
+from google.auth.transport.requests import Request
+from google.oauth2 import id_token
 
 initialize_app()
 
-METRICS_SERVICE_URL = "https://metrics-service-362561211484.us-central1.run.app"
+METRICS_SERVICE_URL = os.environ.get("METRICS_SERVICE_URL")
 
 @https_fn.on_request(secrets=["GEMINI_API_KEY"], memory=512)
 def ask(req):
+    if not METRICS_SERVICE_URL:
+        print("CRITICAL ERROR: METRICS_SERVICE_URL environment variable is not set.")
+        return https_fn.Response(json.dumps({'error': 'INTERNAL_CONFIGURATION_ERROR', 'details': 'METRICS_SERVICE_URL is missing.'}), status=500, headers={'Access-Control-Allow-Origin': '*'})
+
     db = firestore.client()
     # CORS headers - Force Rebuild
     if req.method == 'OPTIONS':
@@ -30,11 +37,14 @@ def ask(req):
         question_raw = data.get('question', '')
         question = question_raw.lower()
         
-        # Priority: 1. Request Payload, 2. Environment Secret
-        api_key = data.get('api_key') or os.environ.get('GEMINI_API_KEY')
+        # Use server-side secret exclusively
+        api_key = os.environ.get('GEMINI_API_KEY')
 
-        if not api_key or not question_raw:
-            return https_fn.Response(json.dumps({'error': 'Missing API Key. Please provide it in the sidebar or set GEMINI_API_KEY secret.'}), status=400, headers=headers)
+        if not api_key:
+             return https_fn.Response(json.dumps({'error': 'SERVER_CONFIG_ERROR', 'details': 'GEMINI_API_KEY secret is not configured on the server.'}), status=500, headers=headers)
+
+        if not question_raw:
+            return https_fn.Response(json.dumps({'error': 'MISSING_QUESTION', 'details': 'Please provide a question in the request body.'}), status=400, headers=headers)
 
         # 0. Intent Detection for BigQuery Metrics
         # Normalize question by removing punctuation for keyword matching
@@ -43,94 +53,125 @@ def ask(req):
         question_words = set(clean_q.split())
         
         if any(kw in question_words for kw in bq_keywords) or "by machine" in question or "per hour" in question:
-            print(f"Bq Intent: {question}")
+            print(f"Bq Intent Detected: {question}")
             try:
-                # Call Cloud Run Metrics Service
-                response = requests.post(
-                    f"{METRICS_SERVICE_URL}/ask",
-                    json={
-                        "question": question_raw,
-                        "tenant_id": data.get("tenant_id", "test_tenant"),
-                        "site_id": data.get("site_id", "test_site"),
-                        "machine_id": data.get("machine_id")
-                    },
-                    timeout=15
-                )
-                if response.status_code == 200:
-                    metrics_data = response.json()
-                    
-                    # 1. Use Gemini ONLY to explain the data
-                    genai.configure(api_key=api_key)
-                    model = genai.GenerativeModel('gemini-2.5-pro')
-                    
-                    explain_prompt = f"""
-                    You are a Manufacturing Data Analyst for SolidCamAI.
-                    User Question: "{question_raw}"
-                    Data: {json.dumps(metrics_data, indent=2)}
-                    
-                    Instructions:
-                    1. Respond ONLY with a valid JSON object.
-                    2. Keys: "answer" (string), "visualization" (object).
-                    3. "answer": Professional Markdown explanation. ALWAYS end with: "This analysis was computed from Google BigQuery (Job ID: {metrics_data.get('source', {}).get('job_id')})."
-                    4. "visualization": Chart.js config (type, labels, datasets).
-                    """
-                    
-                    res = model.generate_content(explain_prompt).text
-                    
-                    # Robust JSON extraction: Find the first { and last }
-                    try:
-                        start_idx = res.find('{')
-                        end_idx = res.rfind('}')
-                        if start_idx != -1 and end_idx != -1:
-                            json_str = res[start_idx:end_idx+1]
-                            structured_response = json.loads(json_str)
-                        else:
-                            raise ValueError("No JSON found")
-                    except Exception as e:
-                        print(f"Gemini JSON Parse Error: {e}")
-                        structured_response = {"answer": res, "visualization": None}
+                # 1. Call Cloud Run Metrics Service
+                try:
+                    # Authenticate request for service-to-service call
+                    auth_req = Request()
+                    # fetch_id_token uses the default service account to get an OIDC token for the target audience
+                    token = id_token.fetch_id_token(auth_req, METRICS_SERVICE_URL)
 
-                    explanation = structured_response.get("answer", "")
-                    viz_data = structured_response.get("visualization")
-                    
-                    # Programmatic Citation Enforcer
-                    job_id = metrics_data.get('source', {}).get('job_id')
-                    citation = f"This analysis was computed from Google BigQuery (Job ID: {job_id})."
-                    if job_id and citation not in explanation:
-                        explanation = explanation.strip() + f"\n\n{citation}"
-                    
-                    # FALLBACK: If visualization is missing or invalid, build it manually from rows
-                    rows = metrics_data.get("rows", [])
-                    if (not viz_data or not viz_data.get("labels")) and rows:
-                        print("Building Fallback Visualization...")
-                        keys = list(rows[0].keys())
-                        # Priority keys for labels and values
-                        label_key = next((k for k in keys if any(x in k.lower() for x in ['id', 'name', 'reason', 'bucket', 'machine'])), keys[0])
-                        value_key = next((k for k in keys if any(x in k.lower() for x in ['duration', 'count', 'minutes', 'uptime', 'seconds', 'seconds'])), keys[-1])
-                        
-                        viz_data = {
-                            "type": "bar",
-                            "title": f"Comparison ({label_key.replace('_', ' ').title()})",
-                            "labels": [str(r.get(label_key)) for r in rows],
-                            "datasets": [{
-                                "label": value_key.replace('_', ' ').title(),
-                                "data": [round(float(r.get(value_key, 0)), 2) for r in rows]
-                            }]
-                        }
-
+                    response = requests.post(
+                        f"{METRICS_SERVICE_URL}/ask",
+                        json={
+                            "question": question_raw,
+                            "tenant_id": data.get("tenant_id", "test_tenant"),
+                            "site_id": data.get("site_id", "test_site"),
+                            "machine_id": data.get("machine_id")
+                        },
+                        headers={"Authorization": f"Bearer {token}"},
+                        timeout=15
+                    )
+                except requests.exceptions.RequestException as req_err:
+                    print(f"Connection Error: {req_err}")
                     return https_fn.Response(json.dumps({
-                        "answer": explanation,
-                        "visualization": viz_data,
-                        "source": metrics_data.get("source"),
-                        "follow_up": [
-                            "What machine has the most downtime?",
-                            "Show me the hourly trend.",
-                            "Why did M001 stop?"
-                        ]
-                    }), status=200, headers=headers)
+                        'error': 'METRICS_SERVICE_UNAVAILABLE',
+                        'details': 'The underlying metrics calculation service is currently unreachable.'
+                    }), status=503, headers=headers)
+
+                if response.status_code != 200:
+                    print(f"Metrics Service Error: {response.status_code} - {response.text}")
+                    return https_fn.Response(json.dumps({
+                        'error': 'METRICS_SERVICE_ERROR',
+                        'details': f'Calculation engine returned an error: {response.status_code}'
+                    }), status=503, headers=headers)
+
+                metrics_data = response.json()
+                
+                # 2. Strict Data Validation (Fail Closed if no rows)
+                rows = metrics_data.get("rows", [])
+                if not rows:
+                    print("No data found in BigQuery for this query.")
+                    return https_fn.Response(json.dumps({
+                        'error': 'NO_DATA_IN_BIGQUERY',
+                        'details': 'No records matched your query in the analytical database. Please ensure your machine sensors are active.'
+                    }), status=404, headers=headers)
+                
+                # 3. Use Gemini ONLY to explain the validated data
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-2.5-pro')
+                
+                explain_prompt = f"""
+                You are a Manufacturing Data Analyst for SolidCamAI.
+                User Question: "{question_raw}"
+                Data from BigQuery: {json.dumps(metrics_data, indent=2)}
+                
+                Instructions:
+                1. Respond ONLY with a valid JSON object.
+                2. Keys: "answer" (string), "visualization" (object).
+                3. "answer": Professional Markdown explanation. ALWAYS end with: "This analysis was computed from Google BigQuery (Job ID: {metrics_data.get('source', {}).get('job_id')})."
+                4. "visualization": Chart.js config (type, labels, datasets).
+                """
+                
+                res = model.generate_content(explain_prompt).text
+                
+                # Robust JSON extraction
+                try:
+                    start_idx = res.find('{')
+                    end_idx = res.rfind('}')
+                    if start_idx != -1 and end_idx != -1:
+                        json_str = res[start_idx:end_idx+1]
+                        structured_response = json.loads(json_str)
+                    else:
+                        raise ValueError("No JSON found")
+                except Exception as e:
+                    print(f"Gemini Explanation Parse Error: {e}")
+                    structured_response = {"answer": res, "visualization": None}
+
+                explanation = structured_response.get("answer", "")
+                viz_data = structured_response.get("visualization")
+                
+                # Programmatic Citation Enforcer
+                job_id = metrics_data.get('source', {}).get('job_id')
+                citation = f"This analysis was computed from Google BigQuery (Job ID: {job_id})."
+                if job_id and citation not in explanation:
+                    explanation = explanation.strip() + f"\n\n{citation}"
+                
+                # FALLBACK Viz from BigQuery Rows (if Gemini missed it)
+                if (not viz_data or not viz_data.get("labels")) and rows:
+                    print("Building Fallback Viz from BQ Rows...")
+                    keys = list(rows[0].keys())
+                    label_key = next((k for k in keys if any(x in k.lower() for x in ['id', 'name', 'reason', 'bucket', 'machine'])), keys[0])
+                    value_key = next((k for k in keys if any(x in k.lower() for x in ['duration', 'count', 'minutes', 'uptime', 'seconds', 'seconds'])), keys[-1])
+                    
+                    viz_data = {
+                        "type": "bar",
+                        "title": f"Comparison ({label_key.replace('_', ' ').title()})",
+                        "labels": [str(r.get(label_key)) for r in rows],
+                        "datasets": [{
+                            "label": value_key.replace('_', ' ').title(),
+                            "data": [round(float(r.get(value_key, 0)), 2) for r in rows]
+                        }]
+                    }
+
+                return https_fn.Response(json.dumps({
+                    "answer": explanation,
+                    "visualization": viz_data,
+                    "source": metrics_data.get("source"),
+                    "follow_up": [
+                        "What machine has the most downtime?",
+                        "Show me the hourly trend.",
+                        "Why did M001 stop?"
+                    ]
+                }), status=200, headers=headers)
+
             except Exception as e:
-                print(f"Metrics service error: {e}")
-                # Fallback to standard Gemini pipeline if metrics service fails
+                print(f"Metrics Critical Failure: {e}")
+                return https_fn.Response(json.dumps({
+                    'error': 'METRICS_SYSTEM_FAILURE',
+                    'details': str(e)
+                }), status=500, headers=headers)
 
         # 1. Fetch data from ALL collections (Unified View)
         collections_to_fetch = ['machines', 'jobs', 'events', 'tools', 'signals']

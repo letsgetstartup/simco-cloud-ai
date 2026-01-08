@@ -3,7 +3,7 @@ set -e
 
 # 0. Detect Project ID
 PROJECT_ID=$(grep -o '"default": "[^"]*"' .firebaserc | cut -d'"' -f4)
-if [ -empty "$PROJECT_ID" ]; then
+if [ -z "$PROJECT_ID" ]; then
     PROJECT_ID=$(gcloud config get-value project)
 fi
 
@@ -26,7 +26,7 @@ gcloud services enable run.googleapis.com \
 # 2. Setup BigQuery
 echo "Setting up BigQuery dataset and table..."
 export GCP_PROJECT=$PROJECT_ID
-python3 etl_job/setup_bq.py
+./venv_etl/bin/python3 etl_job/setup_bq.py
 
 # 3. Create Service Account & Grant Permissions
 if ! gcloud iam service-accounts describe $SA_EMAIL --project "$PROJECT_ID" &>/dev/null; then
@@ -64,9 +64,17 @@ gcloud run deploy metrics-service \
   --image $REGION-docker.pkg.dev/$PROJECT_ID/$REPO/metrics-service \
   --region $REGION \
   --platform managed \
-  --allow-unauthenticated \
+  --no-allow-unauthenticated \
   --service-account "$SA_EMAIL" \
   --set-env-vars GCP_PROJECT=$PROJECT_ID --project "$PROJECT_ID"
+
+# 7. Grant Invoke Permission
+echo "Granting Cloud Run Invoker permission to $SA_EMAIL..."
+gcloud run services add-iam-policy-binding metrics-service \
+  --member="serviceAccount:$SA_EMAIL" \
+  --role="roles/run.invoker" \
+  --region=$REGION \
+  --project="$PROJECT_ID"
 
 echo "------------------------------------------------"
 echo "Deployment Complete!"
