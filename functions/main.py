@@ -54,21 +54,39 @@ def ask(req):
         
         if any(kw in question_words for kw in bq_keywords) or "by machine" in question or "per hour" in question:
             print(f"Bq Intent Detected: {question}")
+            
+            # Explicit Query Mapping (Task 1)
+            query_type = "TOP_DOWNTIME_REASONS" # Default
+            if "machine" in question:
+                query_type = "DOWNTIME_BY_MACHINE"
+            elif "trend" in question or "hour" in question:
+                query_type = "EVENTS_PER_HOUR"
+            
+            # Strict Time Window (Task 2)
+            # For now, default to 30 days but passed EXPLICITLY to the service
+            import datetime
+            now = datetime.datetime.now(datetime.timezone.utc)
+            start_ts = (now - datetime.timedelta(days=30)).isoformat()
+            end_ts = now.isoformat()
+
             try:
                 # 1. Call Cloud Run Metrics Service
                 try:
                     # Authenticate request for service-to-service call
                     auth_req = Request()
-                    # fetch_id_token uses the default service account to get an OIDC token for the target audience
                     token = id_token.fetch_id_token(auth_req, METRICS_SERVICE_URL)
 
                     response = requests.post(
-                        f"{METRICS_SERVICE_URL}/ask",
+                        f"{METRICS_SERVICE_URL}/execute",
                         json={
-                            "question": question_raw,
+                            "query_type": query_type,
                             "tenant_id": data.get("tenant_id", "test_tenant"),
                             "site_id": data.get("site_id", "test_site"),
-                            "machine_id": data.get("machine_id")
+                            "machine_id": data.get("machine_id"),
+                            "time_range": {
+                                "start": start_ts,
+                                "end": end_ts
+                            }
                         },
                         headers={"Authorization": f"Bearer {token}"},
                         timeout=15

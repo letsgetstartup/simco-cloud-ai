@@ -24,36 +24,39 @@ def run_etl():
     watermark_ref = db.document(WATERMARK_DOC_REF)
     watermark_snapshot = watermark_ref.get()
     
-    last_ingested_at = None
+    last_updated_at = None
     if watermark_snapshot.exists:
-        last_ingested_at = watermark_snapshot.get("last_event_timestamp")
+        last_updated_at = watermark_snapshot.get("last_updated_at_watermark")
         
-    if not last_ingested_at:
+    if not last_updated_at:
         print("No watermark found. Defaulting to 48 hours ago for initial load.")
         search_start_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=48)
     else:
-        # LOOKBACK WINDOW: Go back 24 hours from the last watermark to catch updates/late arrivals
-        print(f"Watermark found: {last_ingested_at}")
-        
-        if isinstance(last_ingested_at, str):
-             last_ingested_at = datetime.datetime.fromisoformat(last_ingested_at)
-        elif isinstance(last_ingested_at, DatetimeWithNanoseconds):
-             last_ingested_at = datetime.datetime.fromtimestamp(last_ingested_at.timestamp(), tz=datetime.timezone.utc)
+        print(f"Watermark found: {last_updated_at}")
+        if isinstance(last_updated_at, str):
+             last_updated_at = datetime.datetime.fromisoformat(last_updated_at)
+        elif isinstance(last_updated_at, DatetimeWithNanoseconds):
+             last_updated_at = datetime.datetime.fromtimestamp(last_updated_at.timestamp(), tz=datetime.timezone.utc)
 
-        search_start_time = last_ingested_at - datetime.timedelta(hours=24)
-        print(f"Applying 24h lookback. Search Start Time: {search_start_time}")
+        # Apply a 1-hour overlap safety margin
+        search_start_time = last_updated_at - datetime.timedelta(hours=1)
+        print(f"Search Start Time (updated_at >): {search_start_time}")
 
     # 2. Fetch events
+    # We poll events from the last 7 days to check for updates
     docs = db.collection("events")\
-             .where(filter=firestore.FieldFilter("start_ts", ">", search_start_time))\
-             .order_by("start_ts")\
+             .where(filter=firestore.FieldFilter("start_ts", ">", datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=7)))\
              .stream()
     
     rows = []
-    max_ts = None
+    max_updated_at = last_updated_at if last_updated_at else search_start_time
     
     count = 0
     for doc in docs:
+        doc_updated_at = doc.update_time
+        if doc_updated_at <= search_start_time:
+             continue # Skip already processed unmodified docs
+
         data = doc.to_dict()
         event_id = doc.id
         
@@ -81,31 +84,20 @@ def run_etl():
             "ingested_at": datetime.datetime.now(datetime.timezone.utc)
         }
         
-        # Transformation: Calculate duration if missing (Best effort)
+        # DQ Transform: Ensure duration is valid
         if row["duration_seconds"] is None and row["start_ts"] and row["end_ts"]:
              try:
                  row["duration_seconds"] = int((row["end_ts"] - row["start_ts"]).total_seconds())
              except:
                  pass
         
-        # Explicitly cast to float/int to match BQ schema types if needed, handled by pandas-gbq roughly
-        # Ensure duration_seconds is numeric nullable
         if row["duration_seconds"] is not None:
              row["duration_seconds"] = float(row["duration_seconds"])
 
         rows.append(row)
         
-        # Update Max TS for watermark (using the actual event timestamp)
-        current_ts_obj = data.get("start_ts")
-        if current_ts_obj:
-             # Normalize for comparison
-             if isinstance(current_ts_obj, DatetimeWithNanoseconds):
-                  current_ts_obj = datetime.datetime.fromtimestamp(current_ts_obj.timestamp(), tz=datetime.timezone.utc)
-             elif isinstance(current_ts_obj, str):
-                  current_ts_obj = datetime.datetime.fromisoformat(current_ts_obj)
-             
-             if not max_ts or current_ts_obj > max_ts:
-                 max_ts = current_ts_obj
+        if doc_updated_at > max_updated_at:
+             max_updated_at = doc_updated_at
 
         count += 1
 
@@ -158,13 +150,37 @@ def run_etl():
     """
     
     query_job = bq.query(merge_query)
-    query_job.result()
+    bq.query(merge_query).result()
     print("MERGE complete.")
     
-    # 5. Update Watermark
-    if max_ts:
-        watermark_ref.set({"last_event_timestamp": max_ts}, merge=True)
-        print(f"Watermark updated to {max_ts}.")
+    # 5. Data Quality Checks (Task 4)
+    print("Running Data Quality Checks...")
+    dq_query = f"""
+    SELECT 
+      COUNT(*) as total_batch,
+      COUNTIF(machine_id IS NULL) as missing_machine,
+      COUNTIF(duration_seconds < 0) as negative_duration,
+      COUNTIF(start_ts IS NULL) as missing_start
+    FROM `{staging_ref}`
+    """
+    dq_results = list(bq.query(dq_query).result())[0]
+    
+    dq_report = {
+        "batch_size": dq_results.total_batch,
+        "missing_machine_id": dq_results.missing_machine,
+        "negative_durations": dq_results.negative_duration,
+        "missing_timestamps": dq_results.missing_start,
+        "run_time": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
+    print(f"DQ Report: {dq_report}")
+    
+    if dq_results.negative_duration > 0 or dq_results.missing_machine > 0:
+        print("WARNING: Data Quality anomalies detected. Review logs.")
+
+    # 6. Update Watermark
+    if max_updated_at:
+        watermark_ref.set({"last_updated_at_watermark": max_updated_at}, merge=True)
+        print(f"Watermark updated to {max_updated_at}.")
 
 if __name__ == "__main__":
     run_etl()
