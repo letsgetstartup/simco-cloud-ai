@@ -1,0 +1,55 @@
+{
+    "metrics": {
+        "TOP_DOWNTIME_REASONS": {
+            "metric_version": "1.2.0",
+            "sql_template_path": "sql/top_downtime_reasons.sql",
+            "required_params": [
+                "tenant_id",
+                "site_id",
+                "time_range"
+            ],
+            "optional_params": [
+                "machine_id"
+            ],
+            "visualization": {
+                "type": "bar",
+                "x": "reason",
+                "y": "downtime_minutes"
+            }
+        },
+        "DOWNTIME_BY_MACHINE": {
+            "metric_version": "1.2.0",
+            "sql_template_path": "sql/downtime_by_machine.sql",
+            "required_params": [
+                "tenant_id",
+                "site_id",
+                "time_range"
+            ],
+            "optional_params": [
+                "machine_id"
+            ],
+            "visualization": {
+                "type": "bar",
+                "x": "machine_id",
+                "y": "downtime_minutes"
+            }
+        },
+        "EVENTS_PER_HOUR": {
+            "metric_version": "1.2.0",
+            "sql_template_path": "sql/events_per_hour.sql",
+            "required_params": [
+                "tenant_id",
+                "site_id",
+                "time_range"
+            ],
+            "optional_params": [
+                "machine_id"
+            ],
+            "visualization": {
+                "type": "line",
+                "x": "hour_bucket",
+                "y": "event_count"
+            }
+        }
+    }
+}

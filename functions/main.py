@@ -46,58 +46,36 @@ def ask(req):
         if not question_raw:
             return https_fn.Response(json.dumps({'error': 'MISSING_QUESTION', 'details': 'Please provide a question in the request body.'}), status=400, headers=headers)
 
-        # 0. Intent Detection for BigQuery Metrics
-        # Normalize question by removing punctuation for keyword matching
-        clean_q = "".join(c for c in question if c.isalnum() or c.isspace())
-        bq_keywords = {"reasons", "why", "stop", "stopped", "downtime", "metric", "calculation", "uptime", "distribution", "analysis", "compare", "most", "highest", "lowest", "trend", "hour", "which", "machine"}
-        question_words = set(clean_q.split())
-        
-        if any(kw in question_words for kw in bq_keywords) or "by machine" in question or "per hour" in question:
-            print(f"Bq Intent Detected: {question}")
-            
-            # Explicit Query Mapping (Task 1)
-            query_type = "TOP_DOWNTIME_REASONS" # Default
-            if "machine" in question:
-                query_type = "DOWNTIME_BY_MACHINE"
-            elif "trend" in question or "hour" in question:
-                query_type = "EVENTS_PER_HOUR"
-            
-            # Strict Time Window (Task 2)
-            # For now, default to 30 days but passed EXPLICITLY to the service
-            import datetime
-            now = datetime.datetime.now(datetime.timezone.utc)
-            start_ts = (now - datetime.timedelta(days=30)).isoformat()
-            end_ts = now.isoformat()
+        # 0. Deterministic Metric Routing
+        query_type = data.get("query_type")
+        time_range = data.get("time_range")
+
+        if query_type:
+            print(f"Deterministic Metric Request: {query_type}")
+            if not time_range:
+                return https_fn.Response(json.dumps({
+                    'error': 'MISSING_TIME_RANGE',
+                    'details': 'time_range is mandatory for deterministic metrics.'
+                }), status=400, headers=headers)
 
             try:
-                # 1. Call Cloud Run Metrics Service
-                try:
-                    # Authenticate request for service-to-service call
-                    auth_req = Request()
-                    token = id_token.fetch_id_token(auth_req, METRICS_SERVICE_URL)
+                # Call Cloud Run Metrics Service
+                auth_req = Request()
+                token = id_token.fetch_id_token(auth_req, METRICS_SERVICE_URL)
 
-                    response = requests.post(
-                        f"{METRICS_SERVICE_URL}/execute",
-                        json={
-                            "query_type": query_type,
-                            "tenant_id": data.get("tenant_id", "test_tenant"),
-                            "site_id": data.get("site_id", "test_site"),
-                            "machine_id": data.get("machine_id"),
-                            "time_range": {
-                                "start": start_ts,
-                                "end": end_ts
-                            }
-                        },
-                        headers={"Authorization": f"Bearer {token}"},
-                        timeout=15
-                    )
-                except requests.exceptions.RequestException as req_err:
-                    print(f"Connection Error: {req_err}")
-                    return https_fn.Response(json.dumps({
-                        'error': 'METRICS_SERVICE_UNAVAILABLE',
-                        'details': 'The underlying metrics calculation service is currently unreachable.'
-                    }), status=503, headers=headers)
-
+                response = requests.post(
+                    f"{METRICS_SERVICE_URL}/execute",
+                    json={
+                        "query_type": query_type,
+                        "tenant_id": data.get("tenant_id", "test_tenant"),
+                        "site_id": data.get("site_id", "test_site"),
+                        "machine_id": data.get("machine_id"),
+                        "time_range": time_range
+                    },
+                    headers={"Authorization": f"Bearer {token}"},
+                    timeout=15
+                )
+                
                 if response.status_code != 200:
                     print(f"Metrics Service Error: {response.status_code} - {response.text}")
                     return https_fn.Response(json.dumps({
@@ -107,89 +85,76 @@ def ask(req):
 
                 metrics_data = response.json()
                 
-                # 2. Strict Data Validation (Fail Closed if no rows)
-                rows = metrics_data.get("rows", [])
-                if not rows:
-                    print("No data found in BigQuery for this query.")
-                    return https_fn.Response(json.dumps({
-                        'error': 'NO_DATA_IN_BIGQUERY',
-                        'details': 'No records matched your query in the analytical database. Please ensure your machine sensors are active.'
-                    }), status=404, headers=headers)
-                
-                # 3. Use Gemini ONLY to explain the validated data
+                # 1. Use Gemini ONLY to explain the validated data (Explain-only pattern)
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-2.5-pro')
+                model = genai.GenerativeModel('gemini-1.5-flash') 
                 
                 explain_prompt = f"""
                 You are a Manufacturing Data Analyst for SolidCamAI.
                 User Question: "{question_raw}"
-                Data from BigQuery: {json.dumps(metrics_data, indent=2)}
+                Data from BigQuery: {json.dumps(metrics_data.get('rows'), indent=2)}
                 
                 Instructions:
                 1. Respond ONLY with a valid JSON object.
-                2. Keys: "answer" (string), "visualization" (object).
-                3. "answer": Professional Markdown explanation. ALWAYS end with: "This analysis was computed from Google BigQuery (Job ID: {metrics_data.get('source', {}).get('job_id')})."
-                4. "visualization": Chart.js config (type, labels, datasets).
+                2. Keys: "answer" (string), "extracted_numbers" (list of floats).
+                3. "answer": Professional Markdown explanation. Do NOT invent numbers.
+                4. "extracted_numbers": A list of every numeric value you mentioned in the "answer".
                 """
                 
                 res = model.generate_content(explain_prompt).text
                 
-                # Robust JSON extraction
+                # Extract JSON
                 try:
                     start_idx = res.find('{')
                     end_idx = res.rfind('}')
-                    if start_idx != -1 and end_idx != -1:
-                        json_str = res[start_idx:end_idx+1]
-                        structured_response = json.loads(json_str)
-                    else:
-                        raise ValueError("No JSON found")
+                    structured_response = json.loads(res[start_idx:end_idx+1])
                 except Exception as e:
-                    print(f"Gemini Explanation Parse Error: {e}")
-                    structured_response = {"answer": res, "visualization": None}
+                    print(f"LLM Response Parsing Error: {e}")
+                    structured_response = {"answer": res.strip(), "extracted_numbers": []}
 
-                explanation = structured_response.get("answer", "")
-                viz_data = structured_response.get("visualization")
+                # 2. Guardrail: Numeric Consistency Check
+                answer_text = structured_response.get("answer", "")
+                llm_numbers = structured_response.get("extracted_numbers", [])
                 
-                # Programmatic Citation Enforcer
-                job_id = metrics_data.get('source', {}).get('job_id')
-                citation = f"This analysis was computed from Google BigQuery (Job ID: {job_id})."
-                if job_id and citation not in explanation:
-                    explanation = explanation.strip() + f"\n\n{citation}"
+                # Check if any LLM number is NOT in the raw data (simple set check)
+                # We flatten the raw data values for comparison
+                raw_values = []
+                for row in metrics_data.get('rows', []):
+                    raw_values.extend([v for v in row.values() if isinstance(v, (int, float))])
                 
-                # FALLBACK Viz from BigQuery Rows (if Gemini missed it)
-                if (not viz_data or not viz_data.get("labels")) and rows:
-                    print("Building Fallback Viz from BQ Rows...")
-                    keys = list(rows[0].keys())
-                    label_key = next((k for k in keys if any(x in k.lower() for x in ['id', 'name', 'reason', 'bucket', 'machine'])), keys[0])
-                    value_key = next((k for k in keys if any(x in k.lower() for x in ['duration', 'count', 'minutes', 'uptime', 'seconds', 'seconds'])), keys[-1])
-                    
-                    viz_data = {
-                        "type": "bar",
-                        "title": f"Comparison ({label_key.replace('_', ' ').title()})",
-                        "labels": [str(r.get(label_key)) for r in rows],
-                        "datasets": [{
-                            "label": value_key.replace('_', ' ').title(),
-                            "data": [round(float(r.get(value_key, 0)), 2) for r in rows]
-                        }]
-                    }
+                hallucinated = [n for n in llm_numbers if n not in raw_values]
+                
+                confidence_warning = None
+                if hallucinated:
+                    print(f"GUARDRAIL TRIGGERED: Hallucinated numbers detected: {hallucinated}")
+                    confidence_warning = "Note: A potential numeric inconsistency was detected in the AI narrative. Please refer primarily to the raw data table below."
+                    # In a strict enterprise mode, we might even block the answer. 
+                    # For now, we append a clear warning.
+                    answer_text = f"{answer_text}\n\n> [!CAUTION]\n> {confidence_warning}"
 
                 return https_fn.Response(json.dumps({
-                    "answer": explanation,
-                    "visualization": viz_data,
-                    "source": metrics_data.get("source"),
-                    "follow_up": [
-                        "What machine has the most downtime?",
-                        "Show me the hourly trend.",
-                        "Why did M001 stop?"
-                    ]
+                    "answer": answer_text,
+                    "visualization": data.get("visualization") or metrics_data.get("visualization"),
+                    "audit": metrics_data.get("audit"),
+                    "metric_version": metrics_data.get("metric_version"),
+                    "confidence": metrics_data.get("confidence"),
+                    "citations": metrics_data.get("citations", []) + [{"type": "llm_explanation", "engine": "gemini-1.5-flash"}]
                 }), status=200, headers=headers)
 
             except Exception as e:
-                print(f"Metrics Critical Failure: {e}")
-                return https_fn.Response(json.dumps({
-                    'error': 'METRICS_SYSTEM_FAILURE',
-                    'details': str(e)
-                }), status=500, headers=headers)
+                print(f"Metrics Failure: {e}")
+                return https_fn.Response(json.dumps({'error': 'METRICS_SYSTEM_FAILURE', 'details': str(e)}), status=500, headers=headers)
+
+        # 1. Fallback: Check for "leakage" of metric questions into conversational path
+        bq_keywords = {"reasons", "why", "stop", "stopped", "downtime", "metric", "calculation", "uptime", "distribution", "analysis", "compare", "most", "highest", "lowest", "trend", "hour", "which", "machine"}
+        clean_q = "".join(c for c in question if c.isalnum() or c.isspace())
+        question_words = set(clean_q.split())
+        
+        if any(kw in question_words for kw in bq_keywords):
+             return https_fn.Response(json.dumps({
+                 "answer": "I've detected a request for numeric insights. To ensure accuracy, please select a specific metric from the dashboard.",
+                 "suggestion": "Deterministic metrics require an explicit query_type and time_range."
+             }), status=200, headers=headers)
 
         # 1. Fetch data from ALL collections (Unified View)
         collections_to_fetch = ['machines', 'jobs', 'events', 'tools', 'signals']

@@ -1,0 +1,12 @@
+SELECT
+  machine_id,
+  SUM(COALESCE(duration_seconds, GREATEST(TIMESTAMP_DIFF(end_ts, start_ts, SECOND), 0), 0)) / 60.0 as downtime_minutes
+FROM `{project_id}.{dataset_id}.{table_id}`
+WHERE tenant_id = @tenant_id
+  AND site_id = @site_id
+  AND start_ts >= @start_ts
+  AND start_ts < @end_ts
+  AND event_type IN UNNEST(@event_types)
+  AND machine_id IS NOT NULL
+GROUP BY 1
+ORDER BY downtime_minutes DESC
